@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { QrCode, Sparkles, X, CheckCircle2, ScanLine, RefreshCw, Image as ImageIcon, Trash2, Check, ArrowRight, TrendingUp, Users, DollarSign, Star, Globe } from 'lucide-react';
+import { QrCode, Sparkles, X, CheckCircle2, ScanLine, RefreshCw, Image as ImageIcon, Trash2, Check, ArrowRight, TrendingUp, Users, DollarSign, Star, Globe, Instagram } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { collection, addDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
@@ -759,6 +759,25 @@ export default function Landing() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Footer */}
+      <footer className="py-12 border-t border-slate-200 bg-white text-center flex flex-col items-center justify-center gap-6 relative z-10">
+        <div className="flex items-center gap-3 text-slate-900 font-bold text-xl tracking-tight">
+          <div className="bg-indigo-600 p-1.5 rounded-lg">
+            <QrCode className="w-5 h-5 text-white" />
+          </div>
+          <span>Onemenu<span className="text-indigo-600">.</span></span>
+        </div>
+        <a 
+          href="https://www.instagram.com/onemenu.app/?utm_source=ig_web_button_share_sheet" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="text-slate-400 hover:text-pink-600 transition-colors"
+        >
+          <Instagram className="w-6 h-6" />
+        </a>
+        <p className="text-slate-400 text-sm font-medium">© {new Date().getFullYear()} Onemenu. All rights reserved.</p>
+      </footer>
     </div>
   );
 }

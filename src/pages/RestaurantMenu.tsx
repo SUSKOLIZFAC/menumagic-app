@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { doc, getDoc, query, collection, where, getDocs } from 'firebase/firestore';
-import { UtensilsCrossed, Search, X, ChefHat, Coffee, Wine, Utensils, Image as ImageIcon, ChevronRight } from 'lucide-react';
+import { UtensilsCrossed, Search, X, ChefHat, Coffee, Wine, Utensils, Image as ImageIcon, ChevronRight, Instagram } from 'lucide-react';
 
 export default function RestaurantMenu() {
   const { restaurantId } = useParams<{ restaurantId: string }>();
@@ -230,11 +230,19 @@ export default function RestaurantMenu() {
       </main>
       
       {/* Footer */}
-      <footer className="mt-32 pb-12 text-center">
+      <footer className="mt-32 pb-12 flex flex-col items-center justify-center gap-6">
         <div className="inline-flex items-center justify-center gap-3 px-6 py-3 border border-slate-200 rounded-full bg-white shadow-sm">
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Digital Menu By</span>
           <span className="font-serif text-slate-900 tracking-wide font-medium">Onemenu.</span>
         </div>
+        <a 
+          href="https://www.instagram.com/onemenu.app/?utm_source=ig_web_button_share_sheet" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="text-slate-400 hover:text-pink-600 transition-colors"
+        >
+          <Instagram className="w-6 h-6" />
+        </a>
       </footer>
 
       <style dangerouslySetInnerHTML={{__html: `
