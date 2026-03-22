@@ -1,0 +1,93 @@
+{
+  "entities": {
+    "Restaurant": {
+      "title": "Restaurant",
+      "description": "A coffee shop or restaurant using the digital menu service.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the restaurant" },
+        "description": { "type": "string", "description": "Short description of the restaurant" },
+        "logoUrl": { "type": "string", "description": "URL to the restaurant logo" },
+        "ownerId": { "type": "string", "description": "UID of the admin who created this restaurant" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "ownerId", "createdAt"]
+    },
+    "Menu": {
+      "title": "Menu",
+      "description": "The digitized menu for a restaurant.",
+      "type": "object",
+      "properties": {
+        "restaurantId": { "type": "string", "description": "ID of the restaurant this menu belongs to" },
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string", "description": "Category name (e.g., Starters, Mains, Drinks)" },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": { "type": "string" },
+                    "description": { "type": "string" },
+                    "price": { "type": "number" },
+                    "imageUrl": { "type": "string" }
+                  },
+                  "required": ["name", "price"]
+                }
+              }
+            },
+            "required": ["name", "items"]
+          }
+        },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["restaurantId", "categories", "updatedAt"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "An order placed by a customer from the digital menu.",
+      "type": "object",
+      "properties": {
+        "restaurantId": { "type": "string", "description": "ID of the restaurant" },
+        "tableNumber": { "type": "string", "description": "Table number where the order was placed" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "quantity": { "type": "number" },
+              "price": { "type": "number" }
+            },
+            "required": ["name", "quantity", "price"]
+          }
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "preparing", "ready", "completed", "cancelled"],
+          "description": "Current status of the order"
+        },
+        "total": { "type": "number", "description": "Total price of the order" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["restaurantId", "tableNumber", "items", "status", "total", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/restaurants/{restaurantId}": {
+      "schema": { "$ref": "#/entities/Restaurant" },
+      "description": "Stores restaurant profiles."
+    },
+    "/menus/{menuId}": {
+      "schema": { "$ref": "#/entities/Menu" },
+      "description": "Stores digital menus for restaurants."
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Stores customer orders."
+    }
+  }
+}
