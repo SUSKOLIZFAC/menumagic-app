@@ -88,25 +88,22 @@ export default function RestaurantMenu() {
   const displayCategories = searchQuery ? filteredCategories : filteredCategories.filter((c: any) => c.name === activeCategory);
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] text-slate-900 font-sans selection:bg-slate-200 pb-24">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-slate-200 pb-24">
       
       {/* Hero Header */}
-      <header className="relative pt-20 pb-12 px-6 flex flex-col items-center justify-center min-h-[40vh] overflow-hidden">
+      <header className="relative pt-12 pb-8 px-4 flex flex-col items-center justify-center min-h-[25vh] overflow-hidden bg-white border-b border-slate-100">
         {/* Atmospheric Background */}
         <div className="absolute inset-0 z-0">
-          <div className="absolute inset-0 bg-gradient-to-b from-slate-100 to-[#FAFAFA] opacity-80 z-10"></div>
-          {/* Subtle pattern */}
-          <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #000 1px, transparent 0)', backgroundSize: '32px 32px' }}></div>
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-indigo-100/40 blur-[120px] rounded-full pointer-events-none"></div>
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-indigo-50/60 blur-[100px] rounded-full pointer-events-none"></div>
         </div>
 
         <div className="relative z-20 text-center max-w-3xl mx-auto mt-auto">
-          <h2 className="text-[10px] font-bold tracking-[0.4em] text-slate-400 uppercase mb-6">Welcome To</h2>
-          <h1 className="text-5xl md:text-7xl font-serif font-light tracking-tight mb-6 leading-tight text-slate-900">
+          <h2 className="text-[10px] font-bold tracking-[0.3em] text-slate-400 uppercase mb-3">Welcome To</h2>
+          <h1 className="text-4xl md:text-5xl font-serif font-bold tracking-tight mb-3 leading-tight text-slate-900">
             {restaurant.name}
           </h1>
           {restaurant.description && (
-            <p className="text-slate-500 text-lg md:text-xl font-light max-w-xl mx-auto leading-relaxed">
+            <p className="text-slate-500 text-sm md:text-base font-medium max-w-md mx-auto leading-relaxed px-4">
               {restaurant.description}
             </p>
           )}
@@ -114,45 +111,42 @@ export default function RestaurantMenu() {
       </header>
 
       {/* Sticky Navigation & Search */}
-      <div className="sticky top-0 z-40 bg-[#FAFAFA]/80 backdrop-blur-xl border-b border-slate-200 pt-4 pb-0 mb-12">
-        <div className="max-w-5xl mx-auto px-6">
+      <div className="sticky top-0 z-40 bg-slate-50/90 backdrop-blur-xl pt-4 pb-2 mb-6 shadow-sm border-b border-slate-200/50">
+        <div className="max-w-3xl mx-auto px-4">
           {/* Search */}
-          <div className="relative mb-6">
+          <div className="relative mb-4">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <input
               type="text"
-              placeholder="Search for a dish..."
+              placeholder="Search dishes..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white border border-slate-200 rounded-2xl py-4 pl-12 pr-12 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100 transition-all font-light shadow-sm"
+              className="w-full bg-white border border-slate-200 rounded-2xl py-3.5 pl-12 pr-12 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all font-medium text-base shadow-sm"
             />
             {searchQuery && (
               <button 
                 onClick={() => setSearchQuery('')}
-                className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-900 transition-colors"
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-900 transition-colors bg-slate-100 rounded-full"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             )}
           </div>
 
           {/* Category Tabs (Only show if not searching) */}
           {!searchQuery && menu.categories.length > 1 && (
-            <div className="flex overflow-x-auto hide-scrollbar gap-8 pb-4 snap-x">
+            <div className="flex overflow-x-auto hide-scrollbar gap-2 pb-2 snap-x">
               {menu.categories.map((cat: any, idx: number) => (
                 <button
                   key={idx}
                   onClick={() => setActiveCategory(cat.name)}
-                  className={`snap-start whitespace-nowrap text-sm tracking-[0.2em] uppercase transition-all duration-300 relative pb-2 ${
+                  className={`snap-start whitespace-nowrap px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-200 ${
                     activeCategory === cat.name 
-                      ? 'text-slate-900 font-bold' 
-                      : 'text-slate-400 hover:text-slate-600 font-medium'
+                      ? 'bg-slate-900 text-white shadow-md' 
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
                   }`}
                 >
                   {cat.name}
-                  {activeCategory === cat.name && (
-                    <span className="absolute bottom-0 left-0 w-full h-0.5 bg-slate-900 rounded-t-full"></span>
-                  )}
                 </button>
               ))}
             </div>
@@ -161,63 +155,60 @@ export default function RestaurantMenu() {
       </div>
 
       {/* Menu Content */}
-      <main className="relative z-10 max-w-5xl mx-auto px-6">
+      <main className="relative z-10 max-w-3xl mx-auto px-4">
         {filteredCategories.length === 0 ? (
-          <div className="text-center py-32">
-            <Search className="w-12 h-12 text-slate-200 mx-auto mb-6" />
-            <p className="text-xl text-slate-400 font-light">No dishes found matching "{searchQuery}"</p>
+          <div className="text-center py-20">
+            <Search className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+            <p className="text-lg text-slate-400 font-medium">No dishes found</p>
           </div>
         ) : (
-          <div className="space-y-24">
+          <div className="space-y-10">
             {displayCategories.map((category: any, idx: number) => (
-              <section key={idx} className="animate-in fade-in slide-in-from-bottom-8 duration-1000">
+              <section key={idx} className="animate-in fade-in slide-in-from-bottom-4 duration-700">
                 {searchQuery && (
-                  <h2 className="text-2xl font-serif text-slate-900 mb-8 pb-4 border-b border-slate-200">
+                  <h2 className="text-xl font-bold text-slate-900 mb-4 pb-2 border-b border-slate-200">
                     {category.name}
                   </h2>
                 )}
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                <div className="flex flex-col gap-4">
                   {category.items.map((item: any, i: number) => (
                     <div 
                       key={i} 
-                      className="group flex flex-col bg-white border border-slate-100 rounded-3xl overflow-hidden hover:border-slate-200 shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.06)] transition-all duration-500"
+                      className="group flex flex-row bg-white border border-slate-100 rounded-2xl overflow-hidden hover:border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 p-3 gap-4"
                     >
-                      {/* Image Section - Large and Premium */}
-                      <div className="relative w-full aspect-[4/3] sm:aspect-[16/9] overflow-hidden bg-slate-50">
+                      {/* Content Section */}
+                      <div className="flex-1 flex flex-col justify-center py-1">
+                        <h3 className="text-base md:text-lg font-bold text-slate-900 leading-tight mb-1">
+                          {item.name}
+                        </h3>
+                        
+                        {item.description && (
+                          <p className="text-slate-500 font-normal leading-snug text-sm line-clamp-2 mb-3">
+                            {item.description}
+                          </p>
+                        )}
+                        
+                        <div className="mt-auto">
+                          <span className="text-slate-900 font-bold">
+                            {(item.price || 0).toFixed(2)} <span className="text-slate-500 text-xs font-semibold ml-0.5">DH</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Image Section */}
+                      <div className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-xl overflow-hidden bg-slate-50 shrink-0">
                         {item.imageUrl ? (
                           <img 
                             src={item.imageUrl} 
                             alt={item.name} 
-                            className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-1000 ease-out"
+                            className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out"
                             referrerPolicy="no-referrer"
                           />
                         ) : (
-                          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-                            <ImageIcon className="w-12 h-12 text-slate-200" strokeWidth={1} />
+                          <div className="absolute inset-0 flex items-center justify-center bg-slate-100">
+                            <ImageIcon className="w-8 h-8 text-slate-300" strokeWidth={1.5} />
                           </div>
-                        )}
-                        
-                        {/* Price Tag Overlay */}
-                        <div className="absolute top-4 right-4 z-10">
-                          <div className="bg-white/90 backdrop-blur-md border border-slate-200/50 text-slate-900 px-4 py-2 rounded-full font-bold tracking-wide shadow-lg">
-                            {(item.price || 0).toFixed(2)} <span className="text-slate-400 text-sm font-medium ml-0.5">DH</span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Content Section */}
-                      <div className="p-6 md:p-8 flex-1 flex flex-col">
-                        <div className="flex items-start justify-between gap-4 mb-3">
-                          <h3 className="text-xl md:text-2xl font-serif text-slate-900 leading-tight">
-                            {item.name}
-                          </h3>
-                        </div>
-                        
-                        {item.description && (
-                          <p className="text-slate-500 font-light leading-relaxed text-sm md:text-base mt-auto">
-                            {item.description}
-                          </p>
                         )}
                       </div>
                     </div>
