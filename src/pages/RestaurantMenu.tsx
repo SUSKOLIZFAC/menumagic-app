@@ -177,7 +177,7 @@ export default function RestaurantMenu() {
       <footer className="relative z-10 pb-12 text-center">
         <div className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white/80 backdrop-blur-md rounded-full shadow-sm border border-slate-200/50">
           <span className="text-slate-400 text-sm font-medium">Powered by</span>
-          <span className="text-slate-900 font-bold tracking-tight">MenuMagic<span className="text-indigo-600">.</span></span>
+          <span className="text-slate-900 font-bold tracking-tight">Onemenu<span className="text-indigo-600">.</span></span>
         </div>
       </footer>
     </div>

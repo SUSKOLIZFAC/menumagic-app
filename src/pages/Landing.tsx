@@ -69,7 +69,7 @@ export default function Landing() {
             <div className="bg-indigo-600 p-1.5 rounded-lg">
               <QrCode className="w-5 h-5 text-white" />
             </div>
-            <span>MenuMagic<span className="text-indigo-600">.</span></span>
+            <span>Onemenu<span className="text-indigo-600">.</span></span>
           </div>
           <button 
             onClick={() => setIsModalOpen(true)}
@@ -303,7 +303,7 @@ export default function Landing() {
               <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/50 blur-[80px] rounded-full" />
               <div className="flex items-center gap-3 mb-8 text-white relative z-10">
                 <Sparkles className="w-6 h-6 text-indigo-200" />
-                <h3 className="text-2xl font-bold">MenuMagic</h3>
+                <h3 className="text-2xl font-bold">Onemenu</h3>
               </div>
               <ul className="space-y-6 relative z-10">
                 {[

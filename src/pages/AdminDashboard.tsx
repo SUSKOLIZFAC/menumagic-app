@@ -217,7 +217,8 @@ export default function AdminDashboard() {
     }
   };
 
-  const menuUrl = `${(import.meta as any).env.VITE_APP_URL || window.location.origin}/menu/${selectedRestaurant?.id}`;
+  const baseUrl = window.location.hostname === 'localhost' ? window.location.origin : 'https://one-menu.app';
+  const menuUrl = `${baseUrl}/menu/${selectedRestaurant?.id}`;
 
   const filteredCategories = menu?.categories.map((category: any, catIdx: number) => ({
     ...category,
@@ -236,7 +237,7 @@ export default function AdminDashboard() {
           <div className="bg-indigo-600 p-2 rounded-xl shadow-sm">
             <QrCode className="w-6 h-6 text-white" />
           </div>
-          <span>MenuMagic<span className="text-indigo-600">.</span></span>
+          <span>Onemenu<span className="text-indigo-600">.</span></span>
         </div>
         
         <div className="p-6 flex-1 overflow-y-auto">
@@ -353,7 +354,7 @@ export default function AdminDashboard() {
                 <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4 text-slate-900">
                   Contact Leads
                 </h1>
-                <p className="text-slate-500 text-lg font-medium max-w-xl">Manage incoming requests from restaurants wanting to use MenuMagic.</p>
+                <p className="text-slate-500 text-lg font-medium max-w-xl">Manage incoming requests from restaurants wanting to use Onemenu.</p>
               </div>
 
               {leads.length > 0 ? (
@@ -719,7 +720,7 @@ export default function AdminDashboard() {
                   <div className="w-24 h-24 bg-white rounded-full shadow-sm border border-slate-100 flex items-center justify-center mb-6">
                     <Store className="w-10 h-10 text-slate-300" />
                   </div>
-                  <h2 className="text-2xl font-bold text-slate-900 mb-2">Welcome to MenuMagic</h2>
+                  <h2 className="text-2xl font-bold text-slate-900 mb-2">Welcome to Onemenu</h2>
                   <p className="text-slate-500 text-lg">Select a restaurant from the sidebar or create a new one to start managing your digital menus.</p>
                 </>
               )}
