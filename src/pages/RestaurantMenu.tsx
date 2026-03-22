@@ -157,7 +157,7 @@ export default function RestaurantMenu() {
                           {item.name}
                         </h3>
                         <span className="text-lg font-bold text-indigo-600 shrink-0 bg-indigo-50 px-3 py-1 rounded-xl">
-                          ${item.price.toFixed(2)}
+                          {(item.price || 0).toFixed(2)} DH
                         </span>
                       </div>
                       {item.description && (

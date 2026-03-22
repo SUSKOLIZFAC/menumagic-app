@@ -211,7 +211,7 @@ export default function Landing() {
                 <div className="flex-1 px-5 -mt-12 relative z-10">
                   <div className="bg-white rounded-2xl p-4 shadow-lg mb-4">
                     <h2 className="text-2xl font-serif font-bold text-slate-900 mb-1">Ribeye Steak</h2>
-                    <p className="text-indigo-600 font-bold text-lg mb-2">$45.00</p>
+                    <p className="text-indigo-600 font-bold text-lg mb-2">45.00 DH</p>
                     <p className="text-slate-500 text-xs leading-relaxed">
                       Prime 16oz bone-in ribeye, perfectly marbled and fire-grilled. Served with garlic herb butter.
                     </p>
@@ -223,7 +223,7 @@ export default function Landing() {
                       <img src="https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&q=80&w=200" className="w-12 h-12 rounded-lg object-cover" />
                       <div className="flex-1">
                         <p className="text-slate-900 text-sm font-bold">Truffle Fries</p>
-                        <p className="text-indigo-600 text-xs font-semibold">+$8.00</p>
+                        <p className="text-indigo-600 text-xs font-semibold">+8.00 DH</p>
                       </div>
                       <div className="w-6 h-6 rounded-full bg-indigo-50 flex items-center justify-center mr-2"><PlusIcon className="w-4 h-4 text-indigo-600"/></div>
                     </div>
@@ -231,7 +231,7 @@ export default function Landing() {
                       <div className="w-12 h-12 bg-slate-50 rounded-lg flex items-center justify-center"><Sparkles className="w-5 h-5 text-slate-400"/></div>
                       <div className="flex-1">
                         <p className="text-slate-900 text-sm font-bold">Lobster Tail</p>
-                        <p className="text-indigo-600 text-xs font-semibold">+$22.00</p>
+                        <p className="text-indigo-600 text-xs font-semibold">+22.00 DH</p>
                       </div>
                       <div className="w-6 h-6 rounded-full bg-indigo-50 flex items-center justify-center mr-2"><PlusIcon className="w-4 h-4 text-indigo-600"/></div>
                     </div>
@@ -252,7 +252,7 @@ export default function Landing() {
               <p className="text-sm text-slate-500 font-medium">Average Upsell Increase</p>
             </div>
             <div>
-              <p className="text-4xl font-extrabold text-slate-900 mb-2">$0</p>
+              <p className="text-4xl font-extrabold text-slate-900 mb-2">0 DH</p>
               <p className="text-sm text-slate-500 font-medium">Printing Costs</p>
             </div>
             <div>

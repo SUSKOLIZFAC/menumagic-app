@@ -539,12 +539,12 @@ export default function AdminDashboard() {
                                         />
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
                                         <div className="absolute bottom-4 left-5">
-                                          <span className="font-bold text-white bg-black/30 backdrop-blur-md px-3 py-1.5 rounded-lg text-sm border border-white/20 shadow-sm">${item.price.toFixed(2)}</span>
+                                          <span className="font-bold text-white bg-black/30 backdrop-blur-md px-3 py-1.5 rounded-lg text-sm border border-white/20 shadow-sm">{(item.price || 0).toFixed(2)} DH</span>
                                         </div>
                                       </div>
                                     ) : (
                                       <div className="pt-6 px-6 pb-0 flex justify-end">
-                                        <span className="font-bold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg text-sm border border-indigo-100">${item.price.toFixed(2)}</span>
+                                        <span className="font-bold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg text-sm border border-indigo-100">{(item.price || 0).toFixed(2)} DH</span>
                                       </div>
                                     )}
                                     
@@ -714,9 +714,9 @@ export default function AdminDashboard() {
               </div>
               
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1.5">Price ($)</label>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5">Price (DH)</label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">DH</span>
                   <input 
                     type="number" 
                     step="0.01"
