@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, getDocs, addDoc, doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, doc, getDoc, setDoc, deleteDoc, orderBy } from 'firebase/firestore';
 import { digitizeMenuImage } from '../services/geminiService';
 import { QRCodeSVG } from 'qrcode.react';
-import { Plus, Upload, QrCode, LogOut, Loader2, Edit2, X, Utensils, Image as ImageIcon, ChevronRight, Store, ExternalLink, Trash2, Search } from 'lucide-react';
+import { Plus, Upload, QrCode, LogOut, Loader2, Edit2, X, Utensils, Image as ImageIcon, ChevronRight, Store, ExternalLink, Trash2, Search, Users, Mail, Phone } from 'lucide-react';
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
+  const [viewMode, setViewMode] = useState<'restaurants' | 'leads'>('restaurants');
   const [restaurants, setRestaurants] = useState<any[]>([]);
+  const [leads, setLeads] = useState<any[]>([]);
   const [selectedRestaurant, setSelectedRestaurant] = useState<any | null>(null);
   const [menu, setMenu] = useState<any | null>(null);
   
@@ -111,8 +113,20 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (user) {
       fetchRestaurants();
+      fetchLeads();
     }
   }, [user]);
+
+  const fetchLeads = async () => {
+    try {
+      const q = query(collection(db, 'leads'), orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
+      const fetchedLeads = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setLeads(fetchedLeads);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'leads');
+    }
+  };
 
   const fetchRestaurants = async () => {
     try {
@@ -226,48 +240,81 @@ export default function AdminDashboard() {
         </div>
         
         <div className="p-6 flex-1 overflow-y-auto">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Your Locations</h3>
-            <span className="bg-slate-100 text-slate-600 text-xs font-bold px-2 py-0.5 rounded-full">{restaurants.length}</span>
-          </div>
-          
-          <div className="space-y-2">
-            {restaurants.map(rest => (
-              <button
-                key={rest.id}
-                onClick={() => handleSelectRestaurant(rest)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                  selectedRestaurant?.id === rest.id 
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 translate-x-1' 
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <Store className={`w-4 h-4 ${selectedRestaurant?.id === rest.id ? 'text-indigo-200' : 'text-slate-400'}`} />
-                <span className="truncate">{rest.name}</span>
-                {selectedRestaurant?.id === rest.id && <ChevronRight className="w-4 h-4 ml-auto opacity-70" />}
-              </button>
-            ))}
+          <div className="space-y-2 mb-8">
+            <button
+              onClick={() => setViewMode('restaurants')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                viewMode === 'restaurants' 
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 translate-x-1' 
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <Store className={`w-5 h-5 ${viewMode === 'restaurants' ? 'text-indigo-200' : 'text-slate-400'}`} />
+              <span>Restaurants</span>
+            </button>
+            <button
+              onClick={() => setViewMode('leads')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                viewMode === 'leads' 
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 translate-x-1' 
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <Users className={`w-5 h-5 ${viewMode === 'leads' ? 'text-indigo-200' : 'text-slate-400'}`} />
+              <span>Contact Leads</span>
+              {leads.filter(l => l.status === 'new').length > 0 && (
+                <span className="ml-auto bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  {leads.filter(l => l.status === 'new').length}
+                </span>
+              )}
+            </button>
           </div>
 
-          <form onSubmit={handleCreateRestaurant} className="mt-8">
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Add New Location</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                placeholder="Restaurant Name"
-                value={newRestaurantName}
-                onChange={(e) => setNewRestaurantName(e.target.value)}
-                className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all placeholder:text-slate-400"
-              />
-              <button 
-                type="submit"
-                disabled={loading || !newRestaurantName.trim()}
-                className="p-2.5 bg-slate-900 text-white rounded-xl hover:bg-indigo-600 disabled:opacity-50 transition-colors shadow-sm"
-              >
-                <Plus className="w-5 h-5" />
-              </button>
-            </div>
-          </form>
+          {viewMode === 'restaurants' && (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Your Locations</h3>
+                <span className="bg-slate-100 text-slate-600 text-xs font-bold px-2 py-0.5 rounded-full">{restaurants.length}</span>
+              </div>
+              
+              <div className="space-y-2">
+                {restaurants.map(rest => (
+                  <button
+                    key={rest.id}
+                    onClick={() => handleSelectRestaurant(rest)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                      selectedRestaurant?.id === rest.id 
+                        ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' 
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'
+                    }`}
+                  >
+                    <span className="truncate">{rest.name}</span>
+                    {selectedRestaurant?.id === rest.id && <ChevronRight className="w-4 h-4 ml-auto opacity-70" />}
+                  </button>
+                ))}
+              </div>
+
+              <form onSubmit={handleCreateRestaurant} className="mt-8">
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Add New Location</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Restaurant Name"
+                    value={newRestaurantName}
+                    onChange={(e) => setNewRestaurantName(e.target.value)}
+                    className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all placeholder:text-slate-400"
+                  />
+                  <button 
+                    type="submit"
+                    disabled={loading || !newRestaurantName.trim()}
+                    className="p-2.5 bg-slate-900 text-white rounded-xl hover:bg-indigo-600 disabled:opacity-50 transition-colors shadow-sm"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+              </form>
+            </>
+          )}
         </div>
 
         <div className="p-6 border-t border-slate-100 bg-slate-50/50">
@@ -300,7 +347,81 @@ export default function AdminDashboard() {
         </div>
 
         <div className="p-8 md:p-12 relative z-10">
-          {selectedRestaurant ? (
+          {viewMode === 'leads' ? (
+            <div className="max-w-6xl mx-auto">
+              <div className="mb-12">
+                <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4 text-slate-900">
+                  Contact Leads
+                </h1>
+                <p className="text-slate-500 text-lg font-medium max-w-xl">Manage incoming requests from restaurants wanting to use MenuMagic.</p>
+              </div>
+
+              {leads.length > 0 ? (
+                <div className="grid gap-6">
+                  {leads.map(lead => (
+                    <div key={lead.id} className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 flex flex-col md:flex-row gap-6 justify-between items-start md:items-center">
+                      <div>
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="text-2xl font-bold text-slate-900">{lead.restaurantName}</h3>
+                          {lead.status === 'new' && (
+                            <span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-3 py-1 rounded-full border border-emerald-200">New</span>
+                          )}
+                        </div>
+                        <p className="text-slate-500 font-medium mb-4">Contact: {lead.contactPerson}</p>
+                        
+                        <div className="flex flex-wrap gap-4 text-sm font-medium text-slate-600">
+                          <a href={`mailto:${lead.email}`} className="flex items-center gap-2 hover:text-indigo-600 transition-colors">
+                            <Mail className="w-4 h-4" /> {lead.email}
+                          </a>
+                          <a href={`tel:${lead.phone}`} className="flex items-center gap-2 hover:text-indigo-600 transition-colors">
+                            <Phone className="w-4 h-4" /> {lead.phone}
+                          </a>
+                        </div>
+                      </div>
+                      
+                      <div className="flex flex-col items-end gap-2 w-full md:w-auto">
+                        <span className="text-xs text-slate-400 font-medium mb-2">
+                          {new Date(lead.createdAt).toLocaleDateString()} at {new Date(lead.createdAt).toLocaleTimeString()}
+                        </span>
+                        <select 
+                          value={lead.status}
+                          onChange={async (e) => {
+                            const newStatus = e.target.value;
+                            try {
+                              await setDoc(doc(db, 'leads', lead.id), { ...lead, status: newStatus });
+                              setLeads(leads.map(l => l.id === lead.id ? { ...l, status: newStatus } : l));
+                            } catch (error) {
+                              console.error("Error updating lead status", error);
+                              alert("Failed to update status.");
+                            }
+                          }}
+                          className={`px-4 py-2 rounded-xl text-sm font-bold border outline-none transition-colors cursor-pointer ${
+                            lead.status === 'new' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' :
+                            lead.status === 'contacted' ? 'bg-amber-50 border-amber-200 text-amber-700' :
+                            'bg-slate-100 border-slate-200 text-slate-600'
+                          }`}
+                        >
+                          <option value="new">New</option>
+                          <option value="contacted">Contacted</option>
+                          <option value="closed">Closed</option>
+                        </select>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-white rounded-3xl p-12 shadow-sm border border-slate-100 text-center">
+                  <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Users className="w-10 h-10 text-slate-300" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-slate-900 mb-3">No leads yet</h3>
+                  <p className="text-slate-500 max-w-md mx-auto text-lg">
+                    When restaurants fill out the form on your landing page, they will appear here.
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : selectedRestaurant ? (
             <div className="max-w-6xl mx-auto">
               {/* Header */}
               <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">

@@ -52,9 +52,24 @@ service cloud.firestore {
              data.total is number && data.total >= 0;
     }
 
+    function isValidLead() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['restaurantName', 'contactPerson', 'email', 'phone', 'status', 'createdAt']) &&
+             data.restaurantName is string && data.restaurantName.size() > 0 && data.restaurantName.size() <= 100 &&
+             data.contactPerson is string && data.contactPerson.size() > 0 && data.contactPerson.size() <= 100 &&
+             data.email is string && data.email.size() > 0 && data.email.size() <= 100 &&
+             data.phone is string && data.phone.size() > 0 && data.phone.size() <= 50 &&
+             data.status in ['new', 'contacted', 'closed'];
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
+
+    match /leads/{leadId} {
+      allow create: if isValidLead() && request.resource.data.status == 'new';
+      allow read, update, delete: if isAuthenticated(); // Only admins can read/manage leads
+    }
 
     match /restaurants/{restaurantId} {
       allow read: if true;

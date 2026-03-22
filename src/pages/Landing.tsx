@@ -1,11 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { QrCode, Sparkles, X, CheckCircle2, ScanLine, RefreshCw, Image as ImageIcon, Trash2, Check, ArrowRight, TrendingUp, Users, DollarSign, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { collection, addDoc } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 
 export default function Landing() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [scanned, setScanned] = useState(false);
+
+  // Form state
+  const [formData, setFormData] = useState({
+    restaurantName: '',
+    contactPerson: '',
+    email: '',
+    phone: ''
+  });
 
   // Simulate QR scanning loop
   useEffect(() => {
@@ -15,13 +26,29 @@ export default function Landing() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitted(true);
-    setTimeout(() => {
-      setIsModalOpen(false);
-      setIsSubmitted(false);
-    }, 3000);
+    setIsSubmitting(true);
+    
+    try {
+      await addDoc(collection(db, 'leads'), {
+        ...formData,
+        status: 'new',
+        createdAt: new Date().toISOString()
+      });
+      
+      setIsSubmitted(true);
+      setTimeout(() => {
+        setIsModalOpen(false);
+        setIsSubmitted(false);
+        setFormData({ restaurantName: '', contactPerson: '', email: '', phone: '' });
+      }, 3000);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'leads');
+      alert("There was an error submitting your request. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -394,22 +421,54 @@ export default function Landing() {
                   <form onSubmit={handleSubmit} className="space-y-5">
                     <div>
                       <label className="block text-sm font-bold text-slate-700 mb-1.5">Restaurant Name</label>
-                      <input required type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-slate-900 placeholder:text-slate-400" placeholder="e.g. Bella Italia" />
+                      <input 
+                        required 
+                        type="text" 
+                        value={formData.restaurantName}
+                        onChange={(e) => setFormData({...formData, restaurantName: e.target.value})}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-slate-900 placeholder:text-slate-400" 
+                        placeholder="e.g. Bella Italia" 
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-bold text-slate-700 mb-1.5">Contact Person</label>
-                      <input required type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-slate-900 placeholder:text-slate-400" placeholder="e.g. John Doe" />
+                      <input 
+                        required 
+                        type="text" 
+                        value={formData.contactPerson}
+                        onChange={(e) => setFormData({...formData, contactPerson: e.target.value})}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-slate-900 placeholder:text-slate-400" 
+                        placeholder="e.g. John Doe" 
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-bold text-slate-700 mb-1.5">Email Address</label>
-                      <input required type="email" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-slate-900 placeholder:text-slate-400" placeholder="john@example.com" />
+                      <input 
+                        required 
+                        type="email" 
+                        value={formData.email}
+                        onChange={(e) => setFormData({...formData, email: e.target.value})}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-slate-900 placeholder:text-slate-400" 
+                        placeholder="john@example.com" 
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-bold text-slate-700 mb-1.5">Phone Number</label>
-                      <input required type="tel" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-slate-900 placeholder:text-slate-400" placeholder="(555) 123-4567" />
+                      <input 
+                        required 
+                        type="tel" 
+                        value={formData.phone}
+                        onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-slate-900 placeholder:text-slate-400" 
+                        placeholder="(555) 123-4567" 
+                      />
                     </div>
-                    <button type="submit" className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition-all mt-6 shadow-lg shadow-indigo-200">
-                      Submit Request
+                    <button 
+                      type="submit" 
+                      disabled={isSubmitting}
+                      className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition-all mt-6 shadow-lg shadow-indigo-200 disabled:opacity-70 disabled:cursor-not-allowed"
+                    >
+                      {isSubmitting ? 'Submitting...' : 'Submit Request'}
                     </button>
                   </form>
                 </>
