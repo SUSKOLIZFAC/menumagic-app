@@ -65,7 +65,17 @@ const translations = {
     formSubmitting: "Submitting...",
     navFeatures: "Features",
     navHowItWorks: "How it Works",
-    navPricing: "Pricing"
+    navPricing: "Pricing",
+    showcaseTitle: "Make your food irresistible.",
+    showcaseDesc: "High-quality images that make your customers hungry and increase order value.",
+    dish1Name: "Truffle Burger",
+    dish1Desc: "Wagyu beef, truffle mayo, caramelized onions.",
+    dish2Name: "Margherita Pizza",
+    dish2Desc: "San Marzano tomatoes, fresh mozzarella, basil.",
+    dish3Name: "Salmon Tartare",
+    dish3Desc: "Fresh avocado, ponzu sauce, sesame seeds.",
+    dish4Name: "Matcha Latte",
+    dish4Desc: "Ceremonial grade matcha, oat milk, honey."
   },
   fr: {
     getStarted: "Commencer",
@@ -127,7 +137,17 @@ const translations = {
     formSubmitting: "Soumission en cours...",
     navFeatures: "Avantages",
     navHowItWorks: "Fonctionnement",
-    navPricing: "Tarifs"
+    navPricing: "Tarifs",
+    showcaseTitle: "Rendez vos plats irrésistibles.",
+    showcaseDesc: "Des images de haute qualité qui donnent faim à vos clients et augmentent la valeur des commandes.",
+    dish1Name: "Burger à la Truffe",
+    dish1Desc: "Bœuf Wagyu, mayo à la truffe, oignons caramélisés.",
+    dish2Name: "Pizza Margherita",
+    dish2Desc: "Tomates San Marzano, mozzarella fraîche, basilic.",
+    dish3Name: "Tartare de Saumon",
+    dish3Desc: "Avocat frais, sauce ponzu, graines de sésame.",
+    dish4Name: "Matcha Latte",
+    dish4Desc: "Matcha de cérémonie, lait d'avoine, miel."
   }
 };
 
@@ -470,6 +490,63 @@ export default function Landing() {
                   </li>
                 ))}
               </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Showcase Section */}
+      <section className="py-32 bg-white relative z-10 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6 tracking-tight">{t.showcaseTitle}</h2>
+            <p className="text-xl text-slate-600 max-w-2xl mx-auto">{t.showcaseDesc}</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Dish 1 */}
+            <div className="bg-white rounded-3xl overflow-hidden shadow-lg border border-slate-100 group hover:-translate-y-2 transition-transform duration-300">
+              <div className="h-48 overflow-hidden relative">
+                <img src="https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&q=80&w=800" alt="Burger" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
+                <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full font-bold text-slate-900 shadow-sm">180 DH</div>
+              </div>
+              <div className="p-6">
+                <h3 className="text-xl font-bold text-slate-900 mb-2">{t.dish1Name}</h3>
+                <p className="text-slate-500 text-sm">{t.dish1Desc}</p>
+              </div>
+            </div>
+            {/* Dish 2 */}
+            <div className="bg-white rounded-3xl overflow-hidden shadow-lg border border-slate-100 group hover:-translate-y-2 transition-transform duration-300">
+              <div className="h-48 overflow-hidden relative">
+                <img src="https://images.unsplash.com/photo-1604068549290-dea0e4a305ca?auto=format&fit=crop&q=80&w=800" alt="Pizza" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
+                <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full font-bold text-slate-900 shadow-sm">140 DH</div>
+              </div>
+              <div className="p-6">
+                <h3 className="text-xl font-bold text-slate-900 mb-2">{t.dish2Name}</h3>
+                <p className="text-slate-500 text-sm">{t.dish2Desc}</p>
+              </div>
+            </div>
+            {/* Dish 3 */}
+            <div className="bg-white rounded-3xl overflow-hidden shadow-lg border border-slate-100 group hover:-translate-y-2 transition-transform duration-300">
+              <div className="h-48 overflow-hidden relative">
+                <img src="https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&q=80&w=800" alt="Salmon" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
+                <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full font-bold text-slate-900 shadow-sm">220 DH</div>
+              </div>
+              <div className="p-6">
+                <h3 className="text-xl font-bold text-slate-900 mb-2">{t.dish3Name}</h3>
+                <p className="text-slate-500 text-sm">{t.dish3Desc}</p>
+              </div>
+            </div>
+            {/* Dish 4 */}
+            <div className="bg-white rounded-3xl overflow-hidden shadow-lg border border-slate-100 group hover:-translate-y-2 transition-transform duration-300">
+              <div className="h-48 overflow-hidden relative">
+                <img src="https://images.unsplash.com/photo-1515823662972-da6a2e4d3002?auto=format&fit=crop&q=80&w=800" alt="Matcha" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
+                <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full font-bold text-slate-900 shadow-sm">60 DH</div>
+              </div>
+              <div className="p-6">
+                <h3 className="text-xl font-bold text-slate-900 mb-2">{t.dish4Name}</h3>
+                <p className="text-slate-500 text-sm">{t.dish4Desc}</p>
+              </div>
             </div>
           </div>
         </div>
