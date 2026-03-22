@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, query, collection, where, getDocs } from 'firebase/firestore';
 import { UtensilsCrossed, Search, X, ChefHat, Coffee, Wine, Utensils, Image as ImageIcon, ChevronRight } from 'lucide-react';
 
 export default function RestaurantMenu() {
@@ -20,15 +20,34 @@ export default function RestaurantMenu() {
 
   const fetchData = async () => {
     try {
-      const restDoc = await getDoc(doc(db, 'restaurants', restaurantId!));
-      if (restDoc.exists()) setRestaurant({ id: restDoc.id, ...restDoc.data() });
+      let actualRestaurantId = restaurantId!;
+      let restData = null;
 
-      const menuDoc = await getDoc(doc(db, 'menus', restaurantId!));
-      if (menuDoc.exists()) {
-        const menuData = { id: menuDoc.id, ...menuDoc.data() };
-        setMenu(menuData);
-        if (menuData.categories && menuData.categories.length > 0) {
-          setActiveCategory(menuData.categories[0].name);
+      // First, try to find by slug
+      const q = query(collection(db, 'restaurants'), where('slug', '==', restaurantId));
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        const docSnap = querySnapshot.docs[0];
+        actualRestaurantId = docSnap.id;
+        restData = { id: docSnap.id, ...docSnap.data() };
+      } else {
+        // Fallback to direct ID lookup
+        const restDoc = await getDoc(doc(db, 'restaurants', restaurantId!));
+        if (restDoc.exists()) {
+          restData = { id: restDoc.id, ...restDoc.data() };
+        }
+      }
+
+      if (restData) {
+        setRestaurant(restData);
+        const menuDoc = await getDoc(doc(db, 'menus', actualRestaurantId));
+        if (menuDoc.exists()) {
+          const menuData = { id: menuDoc.id, ...menuDoc.data() };
+          setMenu(menuData);
+          if (menuData.categories && menuData.categories.length > 0) {
+            setActiveCategory(menuData.categories[0].name);
+          }
         }
       }
     } catch (error) {

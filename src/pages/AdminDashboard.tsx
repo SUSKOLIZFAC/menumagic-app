@@ -149,16 +149,21 @@ export default function AdminDashboard() {
     e.preventDefault();
     if (!newRestaurantName.trim()) return;
     
+    const baseSlug = newRestaurantName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+    const randomSuffix = Math.random().toString(36).substring(2, 6);
+    const slug = `${baseSlug}-${randomSuffix}`;
+
     try {
       setLoading(true);
       const docRef = await addDoc(collection(db, 'restaurants'), {
         name: newRestaurantName,
+        slug: slug,
         ownerId: user?.uid,
         createdAt: new Date().toISOString()
       });
       setNewRestaurantName('');
       await fetchRestaurants();
-      handleSelectRestaurant({ id: docRef.id, name: newRestaurantName, ownerId: user?.uid });
+      handleSelectRestaurant({ id: docRef.id, name: newRestaurantName, slug: slug, ownerId: user?.uid });
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'restaurants');
     } finally {
@@ -218,7 +223,7 @@ export default function AdminDashboard() {
   };
 
   const baseUrl = window.location.hostname === 'localhost' ? window.location.origin : 'https://one-menu.app';
-  const menuUrl = `${baseUrl}/menu/${selectedRestaurant?.id}`;
+  const menuUrl = `${baseUrl}/menu/${selectedRestaurant?.slug || selectedRestaurant?.id}`;
 
   const filteredCategories = menu?.categories.map((category: any, catIdx: number) => ({
     ...category,

@@ -31,6 +31,7 @@ service cloud.firestore {
       return data.keys().hasAll(['name', 'ownerId', 'createdAt']) &&
              data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
              data.ownerId == request.auth.uid &&
+             (!('slug' in data) || (data.slug is string && data.slug.size() <= 150)) &&
              (!('description' in data) || (data.description is string && data.description.size() <= 500)) &&
              (!('logoUrl' in data) || (data.logoUrl is string && data.logoUrl.size() <= 1000));
     }
