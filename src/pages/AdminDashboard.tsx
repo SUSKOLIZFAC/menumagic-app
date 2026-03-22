@@ -628,19 +628,72 @@ export default function AdminDashboard() {
                       </a>
                       <button 
                         onClick={() => {
-                          // Simple print functionality
                           const printWindow = window.open('', '_blank');
                           if (printWindow) {
+                            const svgHtml = document.querySelector('.bg-slate-50.p-6 svg')?.outerHTML || '';
+                            const cardsHtml = Array(15).fill(`
+                              <div class="card">
+                                <div class="title">Scan for Menu</div>
+                                <div class="qr-wrapper">${svgHtml}</div>
+                                <div class="subtitle">${selectedRestaurant.name}</div>
+                              </div>
+                            `).join('');
+
                             printWindow.document.write(`
                               <html>
-                                <head><title>Print QR Code</title></head>
-                                <body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;">
-                                  <h1 style="margin-bottom:2rem;">Scan for Menu</h1>
-                                  <div id="qr-container"></div>
-                                  <h2 style="margin-top:2rem;">${selectedRestaurant.name}</h2>
+                                <head>
+                                  <title>Print QR Codes (A4)</title>
+                                  <style>
+                                    @page { size: A4; margin: 10mm; }
+                                    body { 
+                                      margin: 0; 
+                                      padding: 0; 
+                                      font-family: system-ui, -apple-system, sans-serif; 
+                                      -webkit-print-color-adjust: exact; 
+                                    }
+                                    .grid {
+                                      display: grid;
+                                      grid-template-columns: repeat(3, 1fr);
+                                      grid-template-rows: repeat(5, 1fr);
+                                      gap: 5mm;
+                                      height: 277mm; /* A4 height (297) - margins (20) */
+                                      box-sizing: border-box;
+                                    }
+                                    .card {
+                                      display: flex;
+                                      flex-direction: column;
+                                      align-items: center;
+                                      justify-content: center;
+                                      border: 1px dashed #cbd5e1;
+                                      border-radius: 12px;
+                                      padding: 10px;
+                                      text-align: center;
+                                    }
+                                    .qr-wrapper svg {
+                                      width: 35mm;
+                                      height: 35mm;
+                                      margin: 10px 0;
+                                    }
+                                    .title { 
+                                      font-size: 14px; 
+                                      font-weight: 800; 
+                                      color: #0f172a; 
+                                      text-transform: uppercase;
+                                      letter-spacing: 0.05em;
+                                    }
+                                    .subtitle { 
+                                      font-size: 12px; 
+                                      font-weight: 600; 
+                                      color: #4f46e5; 
+                                    }
+                                  </style>
+                                </head>
+                                <body>
+                                  <div class="grid">
+                                    ${cardsHtml}
+                                  </div>
                                   <script>
-                                    document.getElementById('qr-container').innerHTML = '${document.querySelector('.bg-slate-50.p-6 svg')?.outerHTML}';
-                                    window.print();
+                                    window.onload = () => window.print();
                                   </script>
                                 </body>
                               </html>
