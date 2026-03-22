@@ -503,49 +503,53 @@ export default function Landing() {
             <p className="text-xl text-slate-600 max-w-2xl mx-auto">{t.showcaseDesc}</p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Dish 1 */}
-            <div className="bg-white rounded-3xl overflow-hidden shadow-lg border border-slate-100 group hover:-translate-y-2 transition-transform duration-300">
-              <div className="h-48 overflow-hidden relative">
-                <img src="https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&q=80&w=800" alt="Burger" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
-                <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full font-bold text-slate-900 shadow-sm">180 DH</div>
+            <div className="bg-white rounded-xl p-3 flex items-center gap-4 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+              <img src="https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&q=80&w=200" alt="Burger" className="w-16 h-16 rounded-lg object-cover shrink-0" referrerPolicy="no-referrer" />
+              <div className="flex-1">
+                <p className="text-slate-900 text-sm font-bold">{t.dish1Name}</p>
+                <p className="text-slate-500 text-xs line-clamp-1 mb-1">{t.dish1Desc}</p>
+                <p className="text-indigo-600 text-xs font-semibold">180.00 DH</p>
               </div>
-              <div className="p-6">
-                <h3 className="text-xl font-bold text-slate-900 mb-2">{t.dish1Name}</h3>
-                <p className="text-slate-500 text-sm">{t.dish1Desc}</p>
+              <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center shrink-0 mr-2">
+                <PlusIcon className="w-4 h-4 text-indigo-600"/>
               </div>
             </div>
             {/* Dish 2 */}
-            <div className="bg-white rounded-3xl overflow-hidden shadow-lg border border-slate-100 group hover:-translate-y-2 transition-transform duration-300">
-              <div className="h-48 overflow-hidden relative">
-                <img src="https://images.unsplash.com/photo-1604068549290-dea0e4a305ca?auto=format&fit=crop&q=80&w=800" alt="Pizza" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
-                <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full font-bold text-slate-900 shadow-sm">140 DH</div>
+            <div className="bg-white rounded-xl p-3 flex items-center gap-4 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+              <img src="https://images.unsplash.com/photo-1604068549290-dea0e4a305ca?auto=format&fit=crop&q=80&w=200" alt="Pizza" className="w-16 h-16 rounded-lg object-cover shrink-0" referrerPolicy="no-referrer" />
+              <div className="flex-1">
+                <p className="text-slate-900 text-sm font-bold">{t.dish2Name}</p>
+                <p className="text-slate-500 text-xs line-clamp-1 mb-1">{t.dish2Desc}</p>
+                <p className="text-indigo-600 text-xs font-semibold">140.00 DH</p>
               </div>
-              <div className="p-6">
-                <h3 className="text-xl font-bold text-slate-900 mb-2">{t.dish2Name}</h3>
-                <p className="text-slate-500 text-sm">{t.dish2Desc}</p>
+              <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center shrink-0 mr-2">
+                <PlusIcon className="w-4 h-4 text-indigo-600"/>
               </div>
             </div>
             {/* Dish 3 */}
-            <div className="bg-white rounded-3xl overflow-hidden shadow-lg border border-slate-100 group hover:-translate-y-2 transition-transform duration-300">
-              <div className="h-48 overflow-hidden relative">
-                <img src="https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&q=80&w=800" alt="Salmon" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
-                <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full font-bold text-slate-900 shadow-sm">220 DH</div>
+            <div className="bg-white rounded-xl p-3 flex items-center gap-4 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+              <img src="https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&q=80&w=200" alt="Salmon" className="w-16 h-16 rounded-lg object-cover shrink-0" referrerPolicy="no-referrer" />
+              <div className="flex-1">
+                <p className="text-slate-900 text-sm font-bold">{t.dish3Name}</p>
+                <p className="text-slate-500 text-xs line-clamp-1 mb-1">{t.dish3Desc}</p>
+                <p className="text-indigo-600 text-xs font-semibold">220.00 DH</p>
               </div>
-              <div className="p-6">
-                <h3 className="text-xl font-bold text-slate-900 mb-2">{t.dish3Name}</h3>
-                <p className="text-slate-500 text-sm">{t.dish3Desc}</p>
+              <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center shrink-0 mr-2">
+                <PlusIcon className="w-4 h-4 text-indigo-600"/>
               </div>
             </div>
             {/* Dish 4 */}
-            <div className="bg-white rounded-3xl overflow-hidden shadow-lg border border-slate-100 group hover:-translate-y-2 transition-transform duration-300">
-              <div className="h-48 overflow-hidden relative">
-                <img src="https://images.unsplash.com/photo-1515823662972-da6a2e4d3002?auto=format&fit=crop&q=80&w=800" alt="Matcha" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
-                <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full font-bold text-slate-900 shadow-sm">60 DH</div>
+            <div className="bg-white rounded-xl p-3 flex items-center gap-4 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+              <img src="https://images.unsplash.com/photo-1515823662972-da6a2e4d3002?auto=format&fit=crop&q=80&w=200" alt="Matcha" className="w-16 h-16 rounded-lg object-cover shrink-0" referrerPolicy="no-referrer" />
+              <div className="flex-1">
+                <p className="text-slate-900 text-sm font-bold">{t.dish4Name}</p>
+                <p className="text-slate-500 text-xs line-clamp-1 mb-1">{t.dish4Desc}</p>
+                <p className="text-indigo-600 text-xs font-semibold">60.00 DH</p>
               </div>
-              <div className="p-6">
-                <h3 className="text-xl font-bold text-slate-900 mb-2">{t.dish4Name}</h3>
-                <p className="text-slate-500 text-sm">{t.dish4Desc}</p>
+              <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center shrink-0 mr-2">
+                <PlusIcon className="w-4 h-4 text-indigo-600"/>
               </div>
             </div>
           </div>
