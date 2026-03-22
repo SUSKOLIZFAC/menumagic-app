@@ -28,8 +28,8 @@ export default function AdminDashboard() {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 800;
-        const MAX_HEIGHT = 800;
+        const MAX_WIDTH = 400;
+        const MAX_HEIGHT = 400;
         let width = img.width;
         let height = img.height;
 
@@ -48,7 +48,7 @@ export default function AdminDashboard() {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
         setEditingItem(prev => prev ? { ...prev, data: { ...prev.data, imageUrl: dataUrl } } : null);
       };
       img.src = event.target?.result as string;
@@ -544,8 +544,12 @@ export default function AdminDashboard() {
                                         </div>
                                       </div>
                                     ) : (
-                                      <div className="pt-6 px-6 pb-0 flex justify-end">
-                                        <span className="font-bold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg text-sm border border-indigo-100">{(item.price || 0).toFixed(2)} DH</span>
+                                      <div className="w-full h-48 bg-slate-50 flex flex-col items-center justify-center relative border-b border-slate-100">
+                                        <ImageIcon className="w-12 h-12 text-slate-200 mb-2" />
+                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">No Image</span>
+                                        <div className="absolute bottom-4 left-5">
+                                          <span className="font-bold text-indigo-700 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg text-sm border border-indigo-100 shadow-sm">{(item.price || 0).toFixed(2)} DH</span>
+                                        </div>
                                       </div>
                                     )}
                                     

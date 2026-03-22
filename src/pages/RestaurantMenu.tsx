@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { UtensilsCrossed, Search, X, ChefHat, Coffee, Wine, Utensils } from 'lucide-react';
+import { UtensilsCrossed, Search, X, ChefHat, Coffee, Wine, Utensils, Image as ImageIcon, ChevronRight } from 'lucide-react';
 
 export default function RestaurantMenu() {
   const { restaurantId } = useParams<{ restaurantId: string }>();
@@ -10,6 +10,7 @@ export default function RestaurantMenu() {
   const [menu, setMenu] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeCategory, setActiveCategory] = useState<string>('');
 
   useEffect(() => {
     if (restaurantId) {
@@ -23,7 +24,13 @@ export default function RestaurantMenu() {
       if (restDoc.exists()) setRestaurant({ id: restDoc.id, ...restDoc.data() });
 
       const menuDoc = await getDoc(doc(db, 'menus', restaurantId!));
-      if (menuDoc.exists()) setMenu({ id: menuDoc.id, ...menuDoc.data() });
+      if (menuDoc.exists()) {
+        const menuData = { id: menuDoc.id, ...menuDoc.data() };
+        setMenu(menuData);
+        if (menuData.categories && menuData.categories.length > 0) {
+          setActiveCategory(menuData.categories[0].name);
+        }
+      }
     } catch (error) {
       handleFirestoreError(error, OperationType.GET, `menus/${restaurantId}`);
     } finally {
@@ -33,19 +40,19 @@ export default function RestaurantMenu() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#FDFBF7] text-[#0A192F]">
-        <div className="w-16 h-16 border-2 border-[#0A192F]/20 border-t-[#0A192F] rounded-full animate-spin mb-4"></div>
-        <p className="font-bold tracking-widest uppercase text-sm">Preparing Menu</p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a0a0a] text-white">
+        <div className="w-16 h-16 border-2 border-white/20 border-t-white rounded-full animate-spin mb-6"></div>
+        <p className="font-serif italic tracking-widest text-sm text-white/60">Curating your experience...</p>
       </div>
     );
   }
 
   if (!menu || !restaurant) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#FDFBF7] p-6 text-center text-[#0A192F]">
-        <UtensilsCrossed className="w-12 h-12 mb-6 opacity-50" strokeWidth={1.5} />
-        <h1 className="text-3xl font-black tracking-tight mb-3">Menu Unavailable</h1>
-        <p className="opacity-70 max-w-md">This restaurant hasn't set up their digital menu yet. Please check back later.</p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a0a0a] p-6 text-center text-white">
+        <UtensilsCrossed className="w-12 h-12 mb-6 opacity-30" strokeWidth={1} />
+        <h1 className="text-3xl font-serif tracking-tight mb-3">Menu Unavailable</h1>
+        <p className="opacity-50 max-w-md font-light">This restaurant is currently updating their digital experience. Please check back shortly.</p>
       </div>
     );
   }
@@ -58,82 +65,145 @@ export default function RestaurantMenu() {
     )
   })).filter((cat: any) => cat.items.length > 0);
 
-  return (
-    <div className="min-h-screen bg-[#FDFBF7] text-[#0A192F] font-sans selection:bg-[#0A192F]/10 relative">
-      {/* Decorative Background Elements */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden opacity-[0.03]">
-        <ChefHat className="absolute top-20 left-10 w-48 h-48 -rotate-12" strokeWidth={1} />
-        <Coffee className="absolute top-40 right-10 w-32 h-32 rotate-12" strokeWidth={1} />
-        <Wine className="absolute bottom-40 left-20 w-40 h-40 -rotate-6" strokeWidth={1} />
-        <Utensils className="absolute bottom-20 right-20 w-48 h-48 rotate-45" strokeWidth={1} />
-      </div>
+  // If searching, we don't use active category filtering
+  const displayCategories = searchQuery ? filteredCategories : filteredCategories.filter((c: any) => c.name === activeCategory);
 
-      {/* Header */}
-      <header className="relative z-10 pt-24 pb-12 px-6 text-center max-w-4xl mx-auto">
-        <h2 className="text-sm font-bold tracking-[0.3em] opacity-60 uppercase mb-6">{restaurant.name}</h2>
-        <h1 className="text-6xl md:text-8xl font-black tracking-tighter mb-8">
-          OUR MENU
-        </h1>
-        {restaurant.description && (
-          <p className="text-lg opacity-80 max-w-2xl mx-auto italic">
-            {restaurant.description}
-          </p>
-        )}
+  return (
+    <div className="min-h-screen bg-[#0a0a0a] text-[#f5f5f5] font-sans selection:bg-white/20 pb-24">
+      
+      {/* Hero Header */}
+      <header className="relative pt-20 pb-12 px-6 flex flex-col items-center justify-center min-h-[40vh] overflow-hidden">
+        {/* Atmospheric Background */}
+        <div className="absolute inset-0 z-0">
+          <div className="absolute inset-0 bg-gradient-to-b from-[#1a1a1a] to-[#0a0a0a] opacity-80 z-10"></div>
+          {/* If the restaurant had a cover image, it would go here. Using a subtle pattern instead. */}
+          <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '32px 32px' }}></div>
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-white/5 blur-[120px] rounded-full pointer-events-none"></div>
+        </div>
+
+        <div className="relative z-20 text-center max-w-3xl mx-auto mt-auto">
+          <h2 className="text-[10px] font-bold tracking-[0.4em] text-white/40 uppercase mb-6">Welcome To</h2>
+          <h1 className="text-5xl md:text-7xl font-serif font-light tracking-tight mb-6 leading-tight">
+            {restaurant.name}
+          </h1>
+          {restaurant.description && (
+            <p className="text-white/60 text-lg md:text-xl font-light max-w-xl mx-auto leading-relaxed">
+              {restaurant.description}
+            </p>
+          )}
+        </div>
       </header>
 
-      {/* Search Bar */}
-      <div className="relative z-20 max-w-md mx-auto px-6 mb-16">
-        <div className="relative border-b-2 border-[#0A192F] flex items-center pb-2">
-          <Search className="w-5 h-5 opacity-50 mr-3" />
-          <input
-            type="text"
-            placeholder="Search the menu..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1 bg-transparent border-none focus:ring-0 text-lg px-0 py-2 text-[#0A192F] placeholder:text-[#0A192F]/40 outline-none"
-          />
-          {searchQuery && (
-            <button 
-              onClick={() => setSearchQuery('')}
-              className="p-2 opacity-50 hover:opacity-100 transition-opacity"
-            >
-              <X className="w-5 h-5" />
-            </button>
+      {/* Sticky Navigation & Search */}
+      <div className="sticky top-0 z-40 bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-white/5 pt-4 pb-0 mb-12">
+        <div className="max-w-5xl mx-auto px-6">
+          {/* Search */}
+          <div className="relative mb-6">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+            <input
+              type="text"
+              placeholder="Search for a dish..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-12 text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all font-light"
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-white/30 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+
+          {/* Category Tabs (Only show if not searching) */}
+          {!searchQuery && menu.categories.length > 1 && (
+            <div className="flex overflow-x-auto hide-scrollbar gap-8 pb-4 snap-x">
+              {menu.categories.map((cat: any, idx: number) => (
+                <button
+                  key={idx}
+                  onClick={() => setActiveCategory(cat.name)}
+                  className={`snap-start whitespace-nowrap text-sm tracking-[0.2em] uppercase transition-all duration-300 relative pb-2 ${
+                    activeCategory === cat.name 
+                      ? 'text-white font-medium' 
+                      : 'text-white/40 hover:text-white/70 font-light'
+                  }`}
+                >
+                  {cat.name}
+                  {activeCategory === cat.name && (
+                    <span className="absolute bottom-0 left-0 w-full h-0.5 bg-white rounded-t-full"></span>
+                  )}
+                </button>
+              ))}
+            </div>
           )}
         </div>
       </div>
 
       {/* Menu Content */}
-      <main className="relative z-10 max-w-6xl mx-auto px-6 lg:px-12 pb-32">
+      <main className="relative z-10 max-w-5xl mx-auto px-6">
         {filteredCategories.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-xl opacity-60 italic">No dishes found matching "{searchQuery}"</p>
+          <div className="text-center py-32">
+            <Search className="w-12 h-12 text-white/10 mx-auto mb-6" />
+            <p className="text-xl text-white/40 font-light">No dishes found matching "{searchQuery}"</p>
           </div>
         ) : (
-          <div className="columns-1 md:columns-2 gap-16 md:gap-24">
-            {filteredCategories.map((category: any, idx: number) => (
-              <section key={idx} className="mb-16 break-inside-avoid animate-in fade-in duration-700" style={{ animationDelay: `${idx * 100}ms` }}>
-                <h2 className="text-2xl md:text-3xl font-black uppercase tracking-widest mb-8 text-center border-y-2 border-[#0A192F] py-4">
-                  {category.name}
-                </h2>
+          <div className="space-y-24">
+            {displayCategories.map((category: any, idx: number) => (
+              <section key={idx} className="animate-in fade-in slide-in-from-bottom-8 duration-1000">
+                {searchQuery && (
+                  <h2 className="text-2xl font-serif text-white mb-8 pb-4 border-b border-white/10">
+                    {category.name}
+                  </h2>
+                )}
                 
-                <div className="space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                   {category.items.map((item: any, i: number) => (
-                    <div key={i} className="group flex flex-col">
-                      <div className="flex items-baseline justify-between gap-4 mb-1">
-                        <h3 className="text-lg md:text-xl font-bold uppercase tracking-wide">
-                          {item.name}
-                        </h3>
-                        <div className="flex-1 border-b-2 border-dotted border-[#0A192F]/30 relative -top-2"></div>
-                        <span className="text-lg md:text-xl font-bold shrink-0">
-                          {(item.price || 0).toFixed(2)}
-                        </span>
+                    <div 
+                      key={i} 
+                      className="group flex flex-col bg-white/[0.02] border border-white/[0.05] rounded-3xl overflow-hidden hover:bg-white/[0.04] hover:border-white/[0.1] transition-all duration-500"
+                    >
+                      {/* Image Section - Large and Premium */}
+                      <div className="relative w-full aspect-[4/3] sm:aspect-[16/9] overflow-hidden bg-[#111]">
+                        {item.imageUrl ? (
+                          <img 
+                            src={item.imageUrl} 
+                            alt={item.name} 
+                            className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-1000 ease-out"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-white/5 to-transparent">
+                            <ImageIcon className="w-12 h-12 text-white/10" strokeWidth={1} />
+                          </div>
+                        )}
+                        
+                        {/* Price Tag Overlay */}
+                        <div className="absolute top-4 right-4 z-10">
+                          <div className="bg-black/40 backdrop-blur-md border border-white/10 text-white px-4 py-2 rounded-full font-medium tracking-wide shadow-2xl">
+                            {(item.price || 0).toFixed(2)} <span className="text-white/50 text-sm">DH</span>
+                          </div>
+                        </div>
+                        
+                        {/* Gradient Overlay for text readability if we put text over image, but we're putting it below */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-transparent opacity-50"></div>
                       </div>
-                      {item.description && (
-                        <p className="text-sm md:text-base opacity-75 italic leading-relaxed pr-12">
-                          {item.description}
-                        </p>
-                      )}
+                      
+                      {/* Content Section */}
+                      <div className="p-6 md:p-8 flex-1 flex flex-col">
+                        <div className="flex items-start justify-between gap-4 mb-3">
+                          <h3 className="text-xl md:text-2xl font-serif text-white leading-tight">
+                            {item.name}
+                          </h3>
+                        </div>
+                        
+                        {item.description && (
+                          <p className="text-white/50 font-light leading-relaxed text-sm md:text-base mt-auto">
+                            {item.description}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -143,12 +213,23 @@ export default function RestaurantMenu() {
         )}
       </main>
       
-      <footer className="relative z-10 pb-12 text-center">
-        <div className="inline-flex items-center justify-center gap-2 px-6 py-3 border-2 border-[#0A192F] rounded-full">
-          <span className="text-xs font-bold uppercase tracking-widest opacity-60">Powered by</span>
-          <span className="font-black tracking-tight">Onemenu.</span>
+      {/* Footer */}
+      <footer className="mt-32 pb-12 text-center">
+        <div className="inline-flex items-center justify-center gap-3 px-6 py-3 border border-white/10 rounded-full bg-white/5 backdrop-blur-sm">
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40">Digital Menu By</span>
+          <span className="font-serif text-white tracking-wide">Onemenu.</span>
         </div>
       </footer>
+
+      <style dangerouslySetInnerHTML={{__html: `
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .hide-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}} />
     </div>
   );
 }
