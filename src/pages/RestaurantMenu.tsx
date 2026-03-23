@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { doc, getDoc, query, collection, where, getDocs } from 'firebase/firestore';
-import { UtensilsCrossed, Search, X, ChefHat, Coffee, Wine, Utensils, Image as ImageIcon, ChevronRight, Instagram } from 'lucide-react';
+import { UtensilsCrossed, Search, X, ChefHat, Coffee, Wine, Utensils, Image as ImageIcon, ChevronRight, Instagram, Phone } from 'lucide-react';
 
 export default function RestaurantMenu() {
   const { restaurantId } = useParams<{ restaurantId: string }>();
@@ -43,7 +43,7 @@ export default function RestaurantMenu() {
         setRestaurant(restData);
         const menuDoc = await getDoc(doc(db, 'menus', actualRestaurantId));
         if (menuDoc.exists()) {
-          const menuData = { id: menuDoc.id, ...menuDoc.data() };
+          const menuData: any = { id: menuDoc.id, ...menuDoc.data() };
           setMenu(menuData);
           if (menuData.categories && menuData.categories.length > 0) {
             setActiveCategory(menuData.categories[0].name);
@@ -99,13 +99,36 @@ export default function RestaurantMenu() {
 
         <div className="relative z-20 text-center max-w-3xl mx-auto mt-auto">
           <h2 className="text-[10px] font-bold tracking-[0.3em] text-slate-400 uppercase mb-3">Welcome To</h2>
-          <h1 className="text-4xl md:text-5xl font-serif font-bold tracking-tight mb-3 leading-tight text-slate-900">
+          <h1 className="text-6xl md:text-7xl font-serif font-bold tracking-tight mb-4 leading-tight text-slate-900">
             {restaurant.name}
           </h1>
           {restaurant.description && (
-            <p className="text-slate-500 text-sm md:text-base font-medium max-w-md mx-auto leading-relaxed px-4">
+            <p className="text-slate-500 text-sm md:text-base font-medium max-w-md mx-auto leading-relaxed px-4 mb-6">
               {restaurant.description}
             </p>
+          )}
+          
+          {(restaurant.instagramUrl || restaurant.phoneNumber) && (
+            <div className="flex items-center justify-center gap-4 mt-2">
+              {restaurant.instagramUrl && (
+                <a 
+                  href={restaurant.instagramUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-50 text-slate-600 hover:text-pink-600 hover:bg-pink-50 transition-colors border border-slate-100 shadow-sm"
+                >
+                  <Instagram className="w-5 h-5" />
+                </a>
+              )}
+              {restaurant.phoneNumber && (
+                <a 
+                  href={`tel:${restaurant.phoneNumber}`} 
+                  className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-50 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 transition-colors border border-slate-100 shadow-sm"
+                >
+                  <Phone className="w-5 h-5" />
+                </a>
+              )}
+            </div>
           )}
         </div>
       </header>

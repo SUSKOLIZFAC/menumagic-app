@@ -19,6 +19,7 @@ export default function AdminDashboard() {
   const [newRestaurantName, setNewRestaurantName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [editingItem, setEditingItem] = useState<{catIdx: number, itemIdx: number, data: any} | null>(null);
+  const [editingRestaurant, setEditingRestaurant] = useState<any | null>(null);
 
   const handleItemImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -87,6 +88,22 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error("Error deleting item", error);
       alert("Failed to delete item.");
+    }
+  };
+
+  const handleSaveRestaurant = async () => {
+    if (!editingRestaurant) return;
+    try {
+      setLoading(true);
+      await setDoc(doc(db, 'restaurants', editingRestaurant.id), editingRestaurant, { merge: true });
+      setSelectedRestaurant(editingRestaurant);
+      setRestaurants(restaurants.map(r => r.id === editingRestaurant.id ? editingRestaurant : r));
+      setEditingRestaurant(null);
+    } catch (error) {
+      console.error("Error updating restaurant", error);
+      alert("Failed to update restaurant details.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -442,7 +459,14 @@ export default function AdminDashboard() {
                       {selectedRestaurant.name}
                     </span>
                   </h1>
-                  <p className="text-slate-500 text-lg font-medium max-w-xl">Manage your digital menu, update items in real-time, and download your custom QR codes.</p>
+                  <p className="text-slate-500 text-lg font-medium max-w-xl mb-4">Manage your digital menu, update items in real-time, and download your custom QR codes.</p>
+                  <button 
+                    onClick={() => setEditingRestaurant({ ...selectedRestaurant })}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-200 transition-colors"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    Edit Restaurant Details
+                  </button>
                 </div>
                 
                 <div className="flex gap-3 flex-wrap">
@@ -830,6 +854,87 @@ export default function AdminDashboard() {
                   className="flex-[2] bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
                 >
                   Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Restaurant Modal */}
+      {editingRestaurant && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-[2rem] p-8 max-w-lg w-full relative shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <button 
+              onClick={() => setEditingRestaurant(null)} 
+              className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors bg-slate-100 p-2 rounded-full hover:bg-slate-200"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            
+            <div className="flex items-center gap-3 mb-6">
+              <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600">
+                <Store className="w-5 h-5" />
+              </div>
+              <h3 className="text-2xl font-bold text-slate-900 tracking-tight">Restaurant Details</h3>
+            </div>
+            
+            <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5">Restaurant Name</label>
+                <input 
+                  type="text" 
+                  value={editingRestaurant.name || ''}
+                  onChange={(e) => setEditingRestaurant({ ...editingRestaurant, name: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-slate-900 font-medium"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5">Description</label>
+                <textarea 
+                  value={editingRestaurant.description || ''}
+                  onChange={(e) => setEditingRestaurant({ ...editingRestaurant, description: e.target.value })}
+                  placeholder="e.g. A cozy cafe in the heart of the city."
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-slate-900 resize-none h-24"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5">Instagram URL</label>
+                <input 
+                  type="url" 
+                  value={editingRestaurant.instagramUrl || ''}
+                  onChange={(e) => setEditingRestaurant({ ...editingRestaurant, instagramUrl: e.target.value })}
+                  placeholder="https://instagram.com/yourrestaurant"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-slate-900 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5">Phone Number</label>
+                <input 
+                  type="tel" 
+                  value={editingRestaurant.phoneNumber || ''}
+                  onChange={(e) => setEditingRestaurant({ ...editingRestaurant, phoneNumber: e.target.value })}
+                  placeholder="+1 234 567 8900"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-slate-900 font-medium"
+                />
+              </div>
+              
+              <div className="pt-4 flex gap-3">
+                <button 
+                  onClick={() => setEditingRestaurant(null)}
+                  className="flex-1 px-4 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleSaveRestaurant}
+                  disabled={loading}
+                  className="flex-1 px-4 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-200 disabled:opacity-70"
+                >
+                  {loading ? 'Saving...' : 'Save Details'}
                 </button>
               </div>
             </div>

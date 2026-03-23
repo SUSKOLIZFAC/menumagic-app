@@ -8,6 +8,8 @@
         "name": { "type": "string", "description": "Name of the restaurant" },
         "description": { "type": "string", "description": "Short description of the restaurant" },
         "logoUrl": { "type": "string", "description": "URL to the restaurant logo" },
+        "instagramUrl": { "type": "string", "description": "URL to the restaurant's Instagram profile" },
+        "phoneNumber": { "type": "string", "description": "Contact phone number for the restaurant" },
         "ownerId": { "type": "string", "description": "UID of the admin who created this restaurant" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
