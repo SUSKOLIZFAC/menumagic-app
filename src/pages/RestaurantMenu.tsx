@@ -139,16 +139,19 @@ export default function RestaurantMenu() {
     );
   }
 
-  const filteredCategories = menu.categories.map((cat: any) => ({
+  const safeSearchQuery = (searchQuery || '').toLowerCase().trim();
+
+  const filteredCategories = (menu?.categories || []).map((cat: any) => ({
     ...cat,
-    items: cat.items.filter((item: any) =>
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()))
-    )
-  })).filter((cat: any) => cat.items.length > 0);
+    items: (cat.items || []).filter((item: any) => {
+      const nameMatch = (item?.name || '').toLowerCase().includes(safeSearchQuery);
+      const descMatch = (item?.description || '').toLowerCase().includes(safeSearchQuery);
+      return nameMatch || descMatch;
+    })
+  })).filter((cat: any) => cat.items && cat.items.length > 0);
 
   // If searching, we don't use active category filtering
-  const displayCategories = searchQuery 
+  const displayCategories = safeSearchQuery 
     ? filteredCategories 
     : (activeCategory === 'All' 
         ? filteredCategories 
@@ -288,7 +291,7 @@ export default function RestaurantMenu() {
 
       {/* Menu Content */}
       <main className="relative z-10 max-w-3xl mx-auto px-4">
-        {filteredCategories.length === 0 ? (
+        {displayCategories.length === 0 ? (
           <div className="text-center py-20">
             <Search className="w-12 h-12 text-slate-200 mx-auto mb-4" />
             <p className="text-lg text-slate-400 font-medium">No dishes found</p>

@@ -326,14 +326,17 @@ export default function AdminDashboard() {
   const baseUrl = window.location.hostname === 'localhost' ? window.location.origin : 'https://one-menu.app';
   const menuUrl = `${baseUrl}/menu/${selectedRestaurant?.slug || selectedRestaurant?.id}`;
 
-  const filteredCategories = menu?.categories.map((category: any, catIdx: number) => ({
+  const safeSearchQuery = (searchQuery || '').toLowerCase().trim();
+  
+  const filteredCategories = (menu?.categories || []).map((category: any, catIdx: number) => ({
     ...category,
     originalIdx: catIdx,
-    items: category.items.map((item: any, itemIdx: number) => ({ ...item, originalIdx: itemIdx })).filter((item: any) => 
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()))
-    )
-  })).filter((category: any) => category.items.length > 0) || [];
+    items: (category.items || []).map((item: any, itemIdx: number) => ({ ...item, originalIdx: itemIdx })).filter((item: any) => {
+      const nameMatch = (item?.name || '').toLowerCase().includes(safeSearchQuery);
+      const descMatch = (item?.description || '').toLowerCase().includes(safeSearchQuery);
+      return nameMatch || descMatch;
+    })
+  })).filter((category: any) => category.items && category.items.length > 0);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-slate-900 selection:bg-indigo-500/30">
