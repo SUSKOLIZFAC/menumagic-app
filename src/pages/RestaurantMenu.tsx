@@ -289,6 +289,21 @@ export default function RestaurantMenu() {
                   </h2>
                 )}
                 
+                {!searchQuery && category.imageUrl && (
+                  <div className="w-full h-48 md:h-64 rounded-3xl overflow-hidden mb-6 relative shadow-sm border border-slate-100">
+                    <img 
+                      src={category.imageUrl} 
+                      alt={category.name} 
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+                    <div className="absolute bottom-4 left-6">
+                      <h2 className="text-2xl font-bold text-white font-serif tracking-wide">{category.name}</h2>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="flex flex-col gap-4">
                   {category.items.map((item: any, i: number) => (
                     <div 
@@ -315,20 +330,16 @@ export default function RestaurantMenu() {
                       </div>
 
                       {/* Image Section */}
-                      <div className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-xl overflow-hidden bg-slate-50 shrink-0">
-                        {item.imageUrl ? (
+                      {item.imageUrl && (
+                        <div className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-xl overflow-hidden bg-slate-50 shrink-0">
                           <img 
                             src={item.imageUrl} 
                             alt={item.name} 
                             className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out"
                             referrerPolicy="no-referrer"
                           />
-                        ) : (
-                          <div className="absolute inset-0 flex items-center justify-center bg-slate-100">
-                            <ImageIcon className="w-8 h-8 text-slate-300" strokeWidth={1.5} />
-                          </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

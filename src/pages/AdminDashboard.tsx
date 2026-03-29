@@ -75,6 +75,69 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleCategoryImageUpload = (e: React.ChangeEvent<HTMLInputElement>, catIdx: number) => {
+    const file = e.target.files?.[0];
+    if (!file || !menu || !selectedRestaurant) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = async () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+        
+        const newMenu = { ...menu };
+        newMenu.categories[catIdx].imageUrl = dataUrl;
+        try {
+          await setDoc(doc(db, 'menus', selectedRestaurant.id), newMenu);
+          setMenu(newMenu);
+        } catch (error) {
+          console.error("Error updating category image", error);
+          alert("Failed to update category image.");
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveCategoryImage = async (catIdx: number) => {
+    if (!menu || !selectedRestaurant) return;
+    if (!window.confirm("Are you sure you want to remove this category image?")) return;
+
+    const newMenu = { ...menu };
+    delete newMenu.categories[catIdx].imageUrl;
+    
+    try {
+      await setDoc(doc(db, 'menus', selectedRestaurant.id), newMenu);
+      setMenu(newMenu);
+    } catch (error) {
+      console.error("Error removing category image", error);
+      alert("Failed to remove category image.");
+    }
+  };
+
   const handleDeleteItem = async (catIdx: number, itemIdx: number) => {
     if (!menu || !selectedRestaurant) return;
     if (!window.confirm("Are you sure you want to delete this item?")) return;
@@ -587,9 +650,32 @@ export default function AdminDashboard() {
                             <div key={idx} className="relative">
                               <div className="flex items-center gap-4 mb-8">
                                 <h3 className="text-3xl font-bold text-slate-900 font-serif tracking-tight">{category.name}</h3>
+                                
+                                <label className="cursor-pointer p-2 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors" title="Upload Category Image">
+                                  <Upload className="w-4 h-4 text-slate-600" />
+                                  <input 
+                                    type="file" 
+                                    className="hidden" 
+                                    accept="image/*"
+                                    onChange={(e) => handleCategoryImageUpload(e, category.originalIdx)} 
+                                  />
+                                </label>
+
                                 <div className="h-px flex-1 bg-gradient-to-r from-slate-200 to-transparent"></div>
                                 <span className="bg-white text-indigo-600 text-xs font-bold px-3 py-1.5 rounded-full border border-slate-200 shadow-sm">{category.items.length} Items</span>
                               </div>
+
+                              {category.imageUrl && (
+                                <div className="w-full h-48 md:h-64 rounded-2xl overflow-hidden mb-8 relative group border border-slate-200 shadow-sm">
+                                  <img src={category.imageUrl} alt={category.name} className="w-full h-full object-cover" />
+                                  <button 
+                                    onClick={() => handleRemoveCategoryImage(category.originalIdx)}
+                                    className="absolute top-4 right-4 p-2.5 bg-white/90 backdrop-blur-sm text-red-600 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity shadow-sm hover:bg-red-50"
+                                  >
+                                    <Trash2 className="w-5 h-5" />
+                                  </button>
+                                </div>
+                              )}
                               
                               <div className="grid sm:grid-cols-2 gap-6">
                                 {category.items.map((item: any, i: number) => (
@@ -609,7 +695,7 @@ export default function AdminDashboard() {
                                       </button>
                                     </div>
 
-                                    {item.imageUrl ? (
+                                    {item.imageUrl && (
                                       <div className="w-full h-48 overflow-hidden bg-slate-100 relative">
                                         <img 
                                           src={item.imageUrl} 
@@ -622,19 +708,16 @@ export default function AdminDashboard() {
                                           <span className="font-bold text-white bg-black/30 backdrop-blur-md px-3 py-1.5 rounded-lg text-sm border border-white/20 shadow-sm">{(item.price || 0).toFixed(2)} DH</span>
                                         </div>
                                       </div>
-                                    ) : (
-                                      <div className="w-full h-48 bg-slate-50 flex flex-col items-center justify-center relative border-b border-slate-100">
-                                        <ImageIcon className="w-12 h-12 text-slate-200 mb-2" />
-                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">No Image</span>
-                                        <div className="absolute bottom-4 left-5">
-                                          <span className="font-bold text-indigo-700 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg text-sm border border-indigo-100 shadow-sm">{(item.price || 0).toFixed(2)} DH</span>
-                                        </div>
-                                      </div>
                                     )}
                                     
                                     <div className="p-6 flex-1 flex flex-col">
                                       <h4 className="font-bold text-slate-900 text-xl leading-tight mb-2 pr-4">{item.name}</h4>
                                       {item.description && <p className="text-sm text-slate-500 line-clamp-2 leading-relaxed">{item.description}</p>}
+                                      {!item.imageUrl && (
+                                        <div className="mt-4">
+                                          <span className="font-bold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg text-sm border border-indigo-100 shadow-sm">{(item.price || 0).toFixed(2)} DH</span>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                 ))}
