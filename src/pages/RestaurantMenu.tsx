@@ -46,20 +46,33 @@ export default function RestaurantMenu() {
     setCurrentLang(langCode);
     setShowLangMenu(false);
     
-    if (langCode === 'en') {
-      // Clear google translate cookies to reset
-      document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-      document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=' + window.location.hostname;
-      window.location.reload();
-      return;
-    }
-
-    // Find the Google Translate select element and change its value
+    // Method 1: Try to change it instantly without reloading (works best on mobile)
     const select = document.querySelector('.goog-te-combo') as HTMLSelectElement;
     if (select) {
       select.value = langCode;
-      select.dispatchEvent(new Event('change'));
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      
+      // If switching back to English, we might need to clear cookies and reload 
+      // if the instant method doesn't fully reset it
+      if (langCode === 'en') {
+        setTimeout(() => {
+          document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+          document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=' + window.location.hostname;
+          window.location.reload();
+        }, 500);
+      }
+      return;
     }
+
+    // Method 2: Fallback if the Google Translate widget hasn't loaded yet
+    if (langCode === 'en') {
+      document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+      document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=' + window.location.hostname;
+    } else {
+      document.cookie = `googtrans=/en/${langCode}; path=/;`;
+      document.cookie = `googtrans=/en/${langCode}; path=/; domain=${window.location.hostname}`;
+    }
+    window.location.reload();
   };
 
   useEffect(() => {
