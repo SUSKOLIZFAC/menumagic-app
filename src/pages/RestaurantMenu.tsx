@@ -109,7 +109,7 @@ export default function RestaurantMenu() {
           const menuData: any = { id: menuDoc.id, ...menuDoc.data() };
           setMenu(menuData);
           if (menuData.categories && menuData.categories.length > 0) {
-            setActiveCategory(menuData.categories[0].name);
+            setActiveCategory('All');
           }
         }
       }
@@ -148,7 +148,11 @@ export default function RestaurantMenu() {
   })).filter((cat: any) => cat.items.length > 0);
 
   // If searching, we don't use active category filtering
-  const displayCategories = searchQuery ? filteredCategories : filteredCategories.filter((c: any) => c.name === activeCategory);
+  const displayCategories = searchQuery 
+    ? filteredCategories 
+    : (activeCategory === 'All' 
+        ? filteredCategories 
+        : filteredCategories.filter((c: any) => c.name === activeCategory));
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-slate-200 pb-24">
@@ -254,6 +258,16 @@ export default function RestaurantMenu() {
           {/* Category Tabs (Only show if not searching) */}
           {!searchQuery && menu.categories.length > 1 && (
             <div className="flex overflow-x-auto hide-scrollbar gap-2 pb-2 snap-x">
+              <button
+                onClick={() => setActiveCategory('All')}
+                className={`snap-start whitespace-nowrap px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-200 ${
+                  activeCategory === 'All' 
+                    ? 'bg-slate-900 text-white shadow-md' 
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                All
+              </button>
               {menu.categories.map((cat: any, idx: number) => (
                 <button
                   key={idx}
@@ -283,7 +297,7 @@ export default function RestaurantMenu() {
           <div className="space-y-10">
             {displayCategories.map((category: any, idx: number) => (
               <section key={idx} className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-                {searchQuery && (
+                {(searchQuery || (!category.imageUrl && activeCategory === 'All')) && (
                   <h2 className="text-xl font-bold text-slate-900 mb-4 pb-2 border-b border-slate-200">
                     {category.name}
                   </h2>
