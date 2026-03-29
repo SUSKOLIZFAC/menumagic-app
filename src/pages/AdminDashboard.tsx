@@ -4,7 +4,7 @@ import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, getDocs, addDoc, doc, getDoc, setDoc, deleteDoc, orderBy } from 'firebase/firestore';
 import { digitizeMenuImage } from '../services/geminiService';
 import { QRCodeSVG } from 'qrcode.react';
-import { Plus, Upload, QrCode, LogOut, Loader2, Edit2, X, Utensils, Image as ImageIcon, ChevronRight, Store, ExternalLink, Trash2, Search, Users, Mail, Phone } from 'lucide-react';
+import { Plus, Upload, QrCode, LogOut, Loader2, Edit2, X, Utensils, Image as ImageIcon, ChevronRight, Store, ExternalLink, Trash2, Search, Users, Mail, Phone, Menu as MenuIcon } from 'lucide-react';
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
@@ -16,6 +16,8 @@ export default function AdminDashboard() {
   
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [newRestaurantName, setNewRestaurantName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [editingItem, setEditingItem] = useState<{catIdx: number, itemIdx: number, data: any} | null>(null);
@@ -133,6 +135,25 @@ export default function AdminDashboard() {
       fetchLeads();
     }
   }, [user]);
+
+  useEffect(() => {
+    let interval: any;
+    if (uploading) {
+      setUploadProgress(0);
+      interval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 95) return 95;
+          const increment = Math.max(0.5, (95 - prev) * 0.05);
+          return prev + increment;
+        });
+      }, 500);
+    } else {
+      setUploadProgress(100);
+      const timeout = setTimeout(() => setUploadProgress(0), 1000);
+      return () => clearTimeout(timeout);
+    }
+    return () => clearInterval(interval);
+  }, [uploading]);
 
   const fetchLeads = async () => {
     try {
@@ -252,20 +273,36 @@ export default function AdminDashboard() {
   })).filter((category: any) => category.items.length > 0) || [];
 
   return (
-    <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900 selection:bg-indigo-500/30">
+    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-slate-900 selection:bg-indigo-500/30">
+      {/* Mobile Header */}
+      <div className="md:hidden bg-white border-b border-slate-200 p-4 flex items-center justify-between z-30 sticky top-0">
+        <div className="flex items-center gap-2 text-slate-900 font-extrabold text-xl tracking-tight">
+          <div className="bg-indigo-600 p-1.5 rounded-lg shadow-sm">
+            <QrCode className="w-5 h-5 text-white" />
+          </div>
+          <span>Onemenu<span className="text-indigo-600">.</span></span>
+        </div>
+        <button 
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+        >
+          {isMobileMenuOpen ? <X className="w-6 h-6" /> : <MenuIcon className="w-6 h-6" />}
+        </button>
+      </div>
+
       {/* Sidebar */}
-      <aside className="w-72 bg-white border-r border-slate-200 flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20">
-        <div className="p-6 border-b border-slate-100 flex items-center gap-3 text-slate-900 font-extrabold text-2xl tracking-tight">
+      <aside className={`${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex w-full md:w-72 bg-white border-b md:border-r md:border-b-0 border-slate-200 flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20 md:sticky md:top-0 md:h-screen overflow-y-auto`}>
+        <div className="hidden md:flex p-6 border-b border-slate-100 items-center gap-3 text-slate-900 font-extrabold text-2xl tracking-tight">
           <div className="bg-indigo-600 p-2 rounded-xl shadow-sm">
             <QrCode className="w-6 h-6 text-white" />
           </div>
           <span>Onemenu<span className="text-indigo-600">.</span></span>
         </div>
         
-        <div className="p-6 flex-1 overflow-y-auto">
+        <div className="p-6 flex-1">
           <div className="space-y-2 mb-8">
             <button
-              onClick={() => setViewMode('restaurants')}
+              onClick={() => { setViewMode('restaurants'); setIsMobileMenuOpen(false); }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
                 viewMode === 'restaurants' 
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 translate-x-1' 
@@ -276,7 +313,7 @@ export default function AdminDashboard() {
               <span>Restaurants</span>
             </button>
             <button
-              onClick={() => setViewMode('leads')}
+              onClick={() => { setViewMode('leads'); setIsMobileMenuOpen(false); }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
                 viewMode === 'leads' 
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 translate-x-1' 
@@ -304,7 +341,7 @@ export default function AdminDashboard() {
                 {restaurants.map(rest => (
                   <button
                     key={rest.id}
-                    onClick={() => handleSelectRestaurant(rest)}
+                    onClick={() => { handleSelectRestaurant(rest); setIsMobileMenuOpen(false); }}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
                       selectedRestaurant?.id === rest.id 
                         ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' 
@@ -479,7 +516,7 @@ export default function AdminDashboard() {
                     <ExternalLink className="w-4 h-4" />
                     Preview Menu
                   </a>
-                  <div>
+                  <div className="relative">
                     <input
                       type="file"
                       id="menu-upload-header"
@@ -495,6 +532,19 @@ export default function AdminDashboard() {
                       {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                       {uploading ? 'Digitizing AI...' : 'Upload New Menu'}
                     </label>
+                    {uploading && (
+                      <div className="absolute top-full left-0 right-0 mt-2">
+                        <div className="h-1.5 w-full bg-indigo-100 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-indigo-600 transition-all duration-500 ease-out"
+                            style={{ width: `${uploadProgress}%` }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-indigo-600 font-bold mt-1 text-center">
+                          {Math.round(uploadProgress)}% - Analyzing
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <button 
                     onClick={handleDeleteRestaurant}
@@ -617,21 +667,36 @@ export default function AdminDashboard() {
                       <p className="text-slate-500 max-w-md mx-auto mb-8 text-lg">
                         Upload a photo of your physical menu, and our AI will instantly convert it into a beautiful digital experience.
                       </p>
-                      <input
-                        type="file"
-                        id="menu-upload-empty"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleFileUpload}
-                        disabled={uploading}
-                      />
-                      <label 
-                        htmlFor="menu-upload-empty"
-                        className={`inline-flex items-center justify-center gap-3 px-8 py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg cursor-pointer hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 hover:-translate-y-1 ${uploading ? 'opacity-70 cursor-not-allowed' : ''}`}
-                      >
-                        {uploading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Upload className="w-6 h-6" />}
-                        {uploading ? 'Processing with AI...' : 'Upload Menu Image'}
-                      </label>
+                      <div className="relative inline-block">
+                        <input
+                          type="file"
+                          id="menu-upload-empty"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleFileUpload}
+                          disabled={uploading}
+                        />
+                        <label 
+                          htmlFor="menu-upload-empty"
+                          className={`inline-flex items-center justify-center gap-3 px-8 py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg cursor-pointer hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 hover:-translate-y-1 ${uploading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                        >
+                          {uploading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Upload className="w-6 h-6" />}
+                          {uploading ? 'Processing with AI...' : 'Upload Menu Image'}
+                        </label>
+                        {uploading && (
+                          <div className="absolute top-full left-0 right-0 mt-4">
+                            <div className="h-2 w-full bg-indigo-100 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-indigo-600 transition-all duration-500 ease-out"
+                                style={{ width: `${uploadProgress}%` }}
+                              />
+                            </div>
+                            <p className="text-sm text-indigo-600 font-bold mt-2 text-center">
+                              {Math.round(uploadProgress)}% - AI is reading your menu...
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
