@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { doc, getDoc, query, collection, where, getDocs } from 'firebase/firestore';
-import { UtensilsCrossed, Search, X, ChefHat, Coffee, Wine, Utensils, Image as ImageIcon, ChevronRight, Instagram, Phone } from 'lucide-react';
+import { UtensilsCrossed, Search, X, ChefHat, Coffee, Wine, Utensils, Image as ImageIcon, ChevronRight, Instagram, Phone, Globe } from 'lucide-react';
 
 export default function RestaurantMenu() {
   const { restaurantId } = useParams<{ restaurantId: string }>();
@@ -11,6 +11,56 @@ export default function RestaurantMenu() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('');
+  const [showLangMenu, setShowLangMenu] = useState(false);
+  const [currentLang, setCurrentLang] = useState('en');
+
+  const languages = [
+    { code: 'en', label: 'English', flag: '🇬🇧' },
+    { code: 'es', label: 'Español', flag: '🇪🇸' },
+    { code: 'fr', label: 'Français', flag: '🇫🇷' },
+    { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
+  ];
+
+  useEffect(() => {
+    // Check for existing translation cookie
+    const match = document.cookie.match(/googtrans=\/en\/([a-z]{2})/);
+    if (match && match[1]) {
+      setCurrentLang(match[1]);
+    }
+
+    // Add Google Translate script
+    const addScript = document.createElement('script');
+    addScript.setAttribute('src', '//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit');
+    document.body.appendChild(addScript);
+
+    (window as any).googleTranslateElementInit = () => {
+      new (window as any).google.translate.TranslateElement({
+        pageLanguage: 'en',
+        includedLanguages: 'en,es,fr,de',
+        autoDisplay: false,
+      }, 'google_translate_element');
+    };
+  }, []);
+
+  const changeLanguage = (langCode: string) => {
+    setCurrentLang(langCode);
+    setShowLangMenu(false);
+    
+    if (langCode === 'en') {
+      // Clear google translate cookies to reset
+      document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+      document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=' + window.location.hostname;
+      window.location.reload();
+      return;
+    }
+
+    // Find the Google Translate select element and change its value
+    const select = document.querySelector('.goog-te-combo') as HTMLSelectElement;
+    if (select) {
+      select.value = langCode;
+      select.dispatchEvent(new Event('change'));
+    }
+  };
 
   useEffect(() => {
     if (restaurantId) {
@@ -89,9 +139,41 @@ export default function RestaurantMenu() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-slate-200 pb-24">
+      <div id="google_translate_element" className="opacity-0 absolute pointer-events-none"></div>
       
       {/* Hero Header */}
       <header className="relative pt-12 pb-8 px-4 flex flex-col items-center justify-center min-h-[25vh] overflow-hidden bg-white border-b border-slate-100">
+        
+        {/* Language Switcher */}
+        <div className="absolute top-4 right-4 z-50">
+          <div className="relative">
+            <button
+              onClick={() => setShowLangMenu(!showLangMenu)}
+              className="flex items-center gap-2 px-3 py-2 bg-white/80 backdrop-blur-md border border-slate-200 rounded-full shadow-sm text-sm font-medium text-slate-700 hover:bg-white transition-colors"
+            >
+              <Globe className="w-4 h-4" />
+              <span className="uppercase">{currentLang}</span>
+            </button>
+            
+            {showLangMenu && (
+              <div className="absolute right-0 mt-2 w-40 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden py-1 animate-in fade-in slide-in-from-top-2">
+                {languages.map((lang) => (
+                  <button
+                    key={lang.code}
+                    onClick={() => changeLanguage(lang.code)}
+                    className={`w-full text-left px-4 py-3 text-sm flex items-center gap-3 hover:bg-slate-50 transition-colors ${
+                      currentLang === lang.code ? 'text-indigo-600 font-bold bg-indigo-50/50' : 'text-slate-700 font-medium'
+                    }`}
+                  >
+                    <span className="text-lg">{lang.flag}</span>
+                    {lang.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Atmospheric Background */}
         <div className="absolute inset-0 z-0">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-indigo-50/60 blur-[100px] rounded-full pointer-events-none"></div>
