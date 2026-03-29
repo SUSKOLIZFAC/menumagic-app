@@ -6,10 +6,33 @@
   --font-serif: "Playfair Display", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
 }
 
-/* Hide Google Translate Banner and Widget */
+/* Hide Google Translate Banner and Widget completely */
+iframe.goog-te-banner-frame {
+  display: none !important;
+}
 .goog-te-banner-frame.skiptranslate {
   display: none !important;
 }
 body {
   top: 0px !important;
+  position: static !important;
+}
+/* Hide the tooltip that appears when hovering over translated text */
+.goog-text-highlight {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+#goog-gt-tt, .goog-te-balloon-frame {
+  display: none !important;
+}
+.goog-tooltip {
+  display: none !important;
+}
+.goog-tooltip:hover {
+  display: none !important;
+}
+.goog-text-highlight {
+  background-color: transparent !important;
+  border: none !important; 
+  box-shadow: none !important;
 }
