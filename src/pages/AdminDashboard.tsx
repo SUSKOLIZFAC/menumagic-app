@@ -291,30 +291,40 @@ export default function AdminDashboard() {
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !selectedRestaurant) return;
+    const files = e.target.files;
+    if (!files || files.length === 0 || !selectedRestaurant) return;
 
     try {
       setUploading(true);
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64String = reader.result as string;
-        const mimeType = file.type;
-        
-        // Call Gemini
-        const digitizedMenu = await digitizeMenuImage(base64String, mimeType);
-        
-        // Save to Firestore
-        const menuData = {
-          restaurantId: selectedRestaurant.id,
-          categories: digitizedMenu.categories || [],
-          updatedAt: new Date().toISOString()
-        };
-        
-        await setDoc(doc(db, 'menus', selectedRestaurant.id), menuData);
-        setMenu({ id: selectedRestaurant.id, ...menuData });
+      
+      const imagePromises = Array.from(files).map((file) => {
+        return new Promise<{base64Image: string, mimeType: string}>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            resolve({
+              base64Image: reader.result as string,
+              mimeType: file.type
+            });
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      });
+
+      const images = await Promise.all(imagePromises);
+      
+      // Call Gemini
+      const digitizedMenu = await digitizeMenuImage(images);
+      
+      // Save to Firestore
+      const menuData = {
+        restaurantId: selectedRestaurant.id,
+        categories: digitizedMenu.categories || [],
+        updatedAt: new Date().toISOString()
       };
-      reader.readAsDataURL(file);
+      
+      await setDoc(doc(db, 'menus', selectedRestaurant.id), menuData);
+      setMenu({ id: selectedRestaurant.id, ...menuData });
     } catch (error) {
       console.error("Error processing menu:", error);
       alert("Failed to digitize menu. Please try again.");
@@ -587,6 +597,7 @@ export default function AdminDashboard() {
                       type="file"
                       id="menu-upload-header"
                       accept="image/*"
+                      multiple
                       className="hidden"
                       onChange={handleFileUpload}
                       disabled={uploading}
@@ -596,7 +607,7 @@ export default function AdminDashboard() {
                       className={`inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold cursor-pointer hover:bg-indigo-700 transition-all shadow-md shadow-indigo-200 ${uploading ? 'opacity-70 cursor-not-allowed' : ''}`}
                     >
                       {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                      {uploading ? 'Digitizing AI...' : 'Upload New Menu'}
+                      {uploading ? 'Digitizing AI...' : 'Upload Menu Pages'}
                     </label>
                     {uploading && (
                       <div className="absolute top-full left-0 right-0 mt-2">
@@ -758,6 +769,7 @@ export default function AdminDashboard() {
                           type="file"
                           id="menu-upload-empty"
                           accept="image/*"
+                          multiple
                           className="hidden"
                           onChange={handleFileUpload}
                           disabled={uploading}
@@ -767,7 +779,7 @@ export default function AdminDashboard() {
                           className={`inline-flex items-center justify-center gap-3 px-8 py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg cursor-pointer hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 hover:-translate-y-1 ${uploading ? 'opacity-70 cursor-not-allowed' : ''}`}
                         >
                           {uploading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Upload className="w-6 h-6" />}
-                          {uploading ? 'Processing with AI...' : 'Upload Menu Image'}
+                          {uploading ? 'Processing with AI...' : 'Upload Menu Images'}
                         </label>
                         {uploading && (
                           <div className="absolute top-full left-0 right-0 mt-4">

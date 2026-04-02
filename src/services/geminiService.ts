@@ -14,39 +14,41 @@ const getAI = () => {
   return ai;
 };
 
-export const digitizeMenuImage = async (base64Image: string, mimeType: string) => {
+export const digitizeMenuImage = async (images: {base64Image: string, mimeType: string}[]) => {
   try {
     const aiInstance = getAI();
+    
+    const parts: any[] = images.map(img => ({
+      inlineData: {
+        data: img.base64Image.split(',')[1], // Remove data:image/jpeg;base64, prefix
+        mimeType: img.mimeType,
+      },
+    }));
+
+    parts.push({
+      text: `Extract the menu items, descriptions, and prices from these images. 
+      Return ONLY a valid JSON object with the following structure. Do not include markdown formatting like \`\`\`json.
+      {
+        "categories": [
+          {
+            "name": "Category Name (e.g. Starters, Mains, Drinks)",
+            "items": [
+              {
+                "name": "Item Name",
+                "description": "Item Description (if any, otherwise empty string)",
+                "price": 10.50
+              }
+            ]
+          }
+        ]
+      }
+      For the price, return a number, not a string, and remove currency symbols. Combine items from all images into a single cohesive menu structure.`,
+    });
+
     const response = await aiInstance.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: {
-        parts: [
-          {
-            inlineData: {
-              data: base64Image.split(',')[1], // Remove data:image/jpeg;base64, prefix
-              mimeType: mimeType,
-            },
-          },
-          {
-            text: `Extract the menu items, descriptions, and prices from this image. 
-            Return ONLY a valid JSON object with the following structure. Do not include markdown formatting like \`\`\`json.
-            {
-              "categories": [
-                {
-                  "name": "Category Name (e.g. Starters, Mains, Drinks)",
-                  "items": [
-                    {
-                      "name": "Item Name",
-                      "description": "Item Description (if any, otherwise empty string)",
-                      "price": 10.50
-                    }
-                  ]
-                }
-              ]
-            }
-            For the price, return a number, not a string, and remove currency symbols.`,
-          },
-        ],
+        parts: parts,
       },
       config: {
         responseMimeType: "application/json",
