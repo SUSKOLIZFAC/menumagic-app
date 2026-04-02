@@ -810,7 +810,11 @@ export default function AdminDashboard() {
                     <p className="text-sm text-slate-500 mb-8">Print this code and place it on your tables for guests to scan.</p>
                     
                     <div className="bg-slate-50 p-6 inline-block rounded-2xl border border-slate-200 shadow-inner mb-8">
+                      <div className="text-sm font-extrabold text-slate-900 uppercase tracking-widest mb-4">Scan for Menu</div>
                       <QRCodeSVG value={menuUrl} size={180} level="H" className="mx-auto" />
+                      <div className="mt-4 text-lg font-serif italic font-semibold text-slate-700" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
+                        {selectedRestaurant.name}
+                      </div>
                     </div>
                     
                     <div className="space-y-3">
@@ -828,7 +832,7 @@ export default function AdminDashboard() {
                           const printWindow = window.open('', '_blank');
                           if (printWindow) {
                             const svgHtml = document.querySelector('.bg-slate-50.p-6 svg')?.outerHTML || '';
-                            const cardsHtml = Array(15).fill(`
+                            const cardsHtml = Array(20).fill(`
                               <div class="card">
                                 <div class="title">Scan for Menu</div>
                                 <div class="qr-wrapper">${svgHtml}</div>
@@ -840,6 +844,7 @@ export default function AdminDashboard() {
                               <html>
                                 <head>
                                   <title>Print QR Codes (A4)</title>
+                                  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet">
                                   <style>
                                     @page { size: A4; margin: 10mm; }
                                     body { 
@@ -850,9 +855,9 @@ export default function AdminDashboard() {
                                     }
                                     .grid {
                                       display: grid;
-                                      grid-template-columns: repeat(3, 1fr);
+                                      grid-template-columns: repeat(4, 1fr);
                                       grid-template-rows: repeat(5, 1fr);
-                                      gap: 5mm;
+                                      gap: 4mm;
                                       height: 277mm; /* A4 height (297) - margins (20) */
                                       box-sizing: border-box;
                                     }
@@ -863,16 +868,16 @@ export default function AdminDashboard() {
                                       justify-content: center;
                                       border: 1px dashed #cbd5e1;
                                       border-radius: 12px;
-                                      padding: 10px;
+                                      padding: 8px;
                                       text-align: center;
                                     }
                                     .qr-wrapper svg {
-                                      width: 35mm;
-                                      height: 35mm;
-                                      margin: 10px 0;
+                                      width: 30mm;
+                                      height: 30mm;
+                                      margin: 8px 0;
                                     }
                                     .title { 
-                                      font-size: 14px; 
+                                      font-size: 11px; 
                                       font-weight: 800; 
                                       color: #0f172a; 
                                       text-transform: uppercase;
@@ -880,8 +885,12 @@ export default function AdminDashboard() {
                                     }
                                     .subtitle { 
                                       font-size: 12px; 
+                                      font-family: 'Playfair Display', Georgia, serif;
+                                      font-style: italic;
                                       font-weight: 600; 
-                                      color: #4f46e5; 
+                                      color: #334155; 
+                                      margin-top: 2px;
+                                      letter-spacing: 0.02em;
                                     }
                                   </style>
                                 </head>
