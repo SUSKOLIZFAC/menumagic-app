@@ -159,6 +159,13 @@ export default function Landing() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [scanned, setScanned] = useState(false);
   const [lang, setLang] = useState<Language>('en');
+  const [componentError, setComponentError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (componentError) {
+      throw componentError;
+    }
+  }, [componentError]);
 
   const t = translations[lang];
 
@@ -196,7 +203,11 @@ export default function Landing() {
         setFormData({ restaurantName: '', contactPerson: '', email: '', phone: '' });
       }, 3000);
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'leads');
+      try {
+        handleFirestoreError(error, OperationType.CREATE, 'leads');
+      } catch (e: any) {
+        setComponentError(e);
+      }
       alert("There was an error submitting your request. Please try again.");
     } finally {
       setIsSubmitting(false);

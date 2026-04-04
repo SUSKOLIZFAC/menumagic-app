@@ -75,9 +75,17 @@ export default function RestaurantMenu() {
     window.location.reload();
   };
 
+  const [componentError, setComponentError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (componentError) {
+      throw componentError;
+    }
+  }, [componentError]);
+
   useEffect(() => {
     if (restaurantId) {
-      fetchData();
+      fetchData().catch(setComponentError);
     }
   }, [restaurantId]);
 

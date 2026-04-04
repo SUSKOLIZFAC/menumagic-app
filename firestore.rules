@@ -12,9 +12,10 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      return isAuthenticated() && (
-        request.auth.token.email == 'ahmedbahloul230@gmail.com' ||
-        request.auth.token.email == 'ali@onemenu.app'
+      return isAuthenticated() && 
+        'email' in request.auth.token && (
+        request.auth.token.email.lower() == 'ahmedbahloul230@gmail.com' ||
+        request.auth.token.email.lower() == 'ali@onemenu.app'
       );
     }
     

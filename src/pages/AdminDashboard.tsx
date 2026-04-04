@@ -31,8 +31,8 @@ export default function AdminDashboard() {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 300;
-        const MAX_HEIGHT = 300;
+        const MAX_WIDTH = 150;
+        const MAX_HEIGHT = 150;
         let width = img.width;
         let height = img.height;
 
@@ -51,7 +51,7 @@ export default function AdminDashboard() {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.4);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.3);
         setEditingItem(prev => prev ? { ...prev, data: { ...prev.data, imageUrl: dataUrl } } : null);
       };
       img.src = event.target?.result as string;
@@ -84,8 +84,8 @@ export default function AdminDashboard() {
       const img = new Image();
       img.onload = async () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 400;
-        const MAX_HEIGHT = 400;
+        const MAX_WIDTH = 300;
+        const MAX_HEIGHT = 300;
         let width = img.width;
         let height = img.height;
 
@@ -105,7 +105,7 @@ export default function AdminDashboard() {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.4);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.3);
         
         const newMenu = { ...menu };
         newMenu.categories[catIdx].imageUrl = dataUrl;
@@ -192,11 +192,30 @@ export default function AdminDashboard() {
     }
   };
 
+  const [componentError, setComponentError] = useState<Error | null>(null);
+
   useEffect(() => {
-    if (user) {
-      fetchRestaurants();
-      fetchLeads();
+    if (componentError) {
+      throw componentError;
     }
+  }, [componentError]);
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (user) {
+        try {
+          await fetchRestaurants();
+        } catch (error: any) {
+          setComponentError(error);
+        }
+        try {
+          await fetchLeads();
+        } catch (error: any) {
+          setComponentError(error);
+        }
+      }
+    };
+    loadData();
   }, [user]);
 
   useEffect(() => {
@@ -237,7 +256,7 @@ export default function AdminDashboard() {
       const rests = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setRestaurants(rests);
       if (rests.length > 0 && !selectedRestaurant) {
-        handleSelectRestaurant(rests[0]);
+        await handleSelectRestaurant(rests[0]);
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'restaurants');
@@ -264,7 +283,7 @@ export default function AdminDashboard() {
       });
       setNewRestaurantName('');
       await fetchRestaurants();
-      handleSelectRestaurant({ id: docRef.id, name: newRestaurantName, slug: slug, ownerId: user?.uid });
+      await handleSelectRestaurant({ id: docRef.id, name: newRestaurantName, slug: slug, ownerId: user?.uid });
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'restaurants');
     } finally {
@@ -417,7 +436,7 @@ export default function AdminDashboard() {
                 {restaurants.map(rest => (
                   <button
                     key={rest.id}
-                    onClick={() => { handleSelectRestaurant(rest); setIsMobileMenuOpen(false); }}
+                    onClick={() => { handleSelectRestaurant(rest).catch(setComponentError); setIsMobileMenuOpen(false); }}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
                       selectedRestaurant?.id === rest.id 
                         ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' 
@@ -430,7 +449,7 @@ export default function AdminDashboard() {
                 ))}
               </div>
 
-              <form onSubmit={handleCreateRestaurant} className="mt-8">
+              <form onSubmit={(e) => handleCreateRestaurant(e).catch(setComponentError)} className="mt-8">
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Add New Location</label>
                 <div className="flex items-center gap-2">
                   <input
@@ -624,7 +643,7 @@ export default function AdminDashboard() {
                     )}
                   </div>
                   <button 
-                    onClick={handleDeleteRestaurant}
+                    onClick={(e) => handleDeleteRestaurant().catch(setComponentError)}
                     className="inline-flex items-center gap-2 px-5 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-xl text-sm font-bold hover:bg-red-100 hover:border-red-300 transition-all shadow-sm"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -683,7 +702,7 @@ export default function AdminDashboard() {
                                 <div className="w-full h-48 md:h-64 rounded-2xl overflow-hidden mb-8 relative group border border-slate-200 shadow-sm">
                                   <img src={category.imageUrl} alt={category.name} className="w-full h-full object-cover" />
                                   <button 
-                                    onClick={() => handleRemoveCategoryImage(category.originalIdx)}
+                                    onClick={() => handleRemoveCategoryImage(category.originalIdx).catch(setComponentError)}
                                     className="absolute top-4 right-4 p-2.5 bg-white/90 backdrop-blur-sm text-red-600 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity shadow-sm hover:bg-red-50"
                                   >
                                     <Trash2 className="w-5 h-5" />
@@ -702,7 +721,7 @@ export default function AdminDashboard() {
                                         <Edit2 className="w-4 h-4" />
                                       </button>
                                       <button 
-                                        onClick={() => handleDeleteItem(category.originalIdx, item.originalIdx)}
+                                        onClick={() => handleDeleteItem(category.originalIdx, item.originalIdx).catch(setComponentError)}
                                         className="p-2.5 bg-white/90 backdrop-blur-sm rounded-xl shadow-sm text-slate-500 hover:text-red-600 transition-colors"
                                       >
                                         <Trash2 className="w-4 h-4" />
@@ -1022,7 +1041,7 @@ export default function AdminDashboard() {
                   Cancel
                 </button>
                 <button 
-                  onClick={handleSaveItem}
+                  onClick={(e) => handleSaveItem().catch(setComponentError)}
                   className="flex-[2] bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
                 >
                   Save Changes
@@ -1102,7 +1121,7 @@ export default function AdminDashboard() {
                   Cancel
                 </button>
                 <button 
-                  onClick={handleSaveRestaurant}
+                  onClick={(e) => handleSaveRestaurant().catch(setComponentError)}
                   disabled={loading}
                   className="flex-1 px-4 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-200 disabled:opacity-70"
                 >
