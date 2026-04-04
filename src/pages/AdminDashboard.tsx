@@ -232,7 +232,7 @@ export default function AdminDashboard() {
   const fetchRestaurants = async () => {
     try {
       setLoading(true);
-      const q = query(collection(db, 'restaurants'), where('ownerId', '==', user?.uid));
+      const q = query(collection(db, 'restaurants'));
       const querySnapshot = await getDocs(q);
       const rests = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setRestaurants(rests);

@@ -11,6 +11,13 @@ service cloud.firestore {
       return request.auth != null;
     }
     
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == 'ahmedbahloul230@gmail.com' ||
+        request.auth.token.email == 'ali@onemenu.app'
+      );
+    }
+    
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
@@ -30,7 +37,7 @@ service cloud.firestore {
       let data = request.resource.data;
       return data.keys().hasAll(['name', 'ownerId', 'createdAt']) &&
              data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
-             data.ownerId == request.auth.uid &&
+             data.ownerId is string &&
              (!('slug' in data) || (data.slug is string && data.slug.size() <= 150)) &&
              (!('description' in data) || (data.description is string && data.description.size() <= 500)) &&
              (!('logoUrl' in data) || (data.logoUrl is string && data.logoUrl.size() <= 1000));
@@ -69,25 +76,23 @@ service cloud.firestore {
 
     match /leads/{leadId} {
       allow create: if isValidLead() && request.resource.data.status == 'new';
-      allow read, update, delete: if isAuthenticated(); // Only admins can read/manage leads
+      allow read, update, delete: if isAdmin(); // Only admins can read/manage leads
     }
 
     match /restaurants/{restaurantId} {
       allow read: if true;
-      allow create: if isAuthenticated() && isValidRestaurant();
-      allow update: if isAuthenticated() && 
-                    resource.data.ownerId == request.auth.uid && 
-                    isValidRestaurant() &&
+      allow create: if isAdmin() && isValidRestaurant();
+      allow update: if isAdmin() && isValidRestaurant() &&
                     request.resource.data.ownerId == resource.data.ownerId; // ownerId is immutable
-      allow delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
+      allow delete: if isAdmin();
     }
 
     match /menus/{menuId} {
       allow read: if true;
-      allow create: if isAuthenticated() && isValidMenu();
-      allow update: if isAuthenticated() && isValidMenu() &&
+      allow create: if isAdmin() && isValidMenu();
+      allow update: if isAdmin() && isValidMenu() &&
                     request.resource.data.restaurantId == resource.data.restaurantId; // restaurantId is immutable
-      allow delete: if isAuthenticated();
+      allow delete: if isAdmin();
     }
 
     match /orders/{orderId} {

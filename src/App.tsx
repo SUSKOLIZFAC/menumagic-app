@@ -9,7 +9,12 @@ import Login from './pages/Login';
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
-  if (!user || user.email !== 'ahmedbahloul230@gmail.com') return <Navigate to="/login" />;
+  
+  const allowedEmails = ['ahmedbahloul230@gmail.com', 'ali@onemenu.app'];
+  if (!user || !user.email || !allowedEmails.includes(user.email.toLowerCase())) {
+    return <Navigate to="/login" />;
+  }
+  
   return <>{children}</>;
 };
 
