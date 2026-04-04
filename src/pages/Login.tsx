@@ -43,6 +43,8 @@ export default function Login() {
       console.error("Auth error", err);
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
         setError('Invalid username or password.');
+      } else if (err.code === 'auth/operation-not-allowed') {
+        setError('Email/Password login is not enabled in Firebase. Please see the instructions below to enable it.');
       } else {
         setError(err.message || 'Failed to authenticate.');
       }
