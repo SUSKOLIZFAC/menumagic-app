@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, getDocs, addDoc, doc, getDoc, setDoc, deleteDoc, orderBy, serverTimestamp } from 'firebase/firestore';
 import { ImageDisplay } from '../components/ImageDisplay';
+import { digitizeMenuImage } from '../services/geminiService';
 import { QRCodeSVG } from 'qrcode.react';
 import { Plus, Upload, QrCode, LogOut, Loader2, Edit2, X, Utensils, Image as ImageIcon, ChevronRight, Store, ExternalLink, Trash2, Search, Users, Mail, Phone, Menu as MenuIcon } from 'lucide-react';
 
