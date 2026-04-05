@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, getDocs, addDoc, doc, getDoc, setDoc, deleteDoc, orderBy } from 'firebase/firestore';
-import { digitizeMenuImage } from '../services/geminiService';
+import { collection, query, where, getDocs, addDoc, doc, getDoc, setDoc, deleteDoc, orderBy, serverTimestamp } from 'firebase/firestore';
+import { ImageDisplay } from '../components/ImageDisplay';
 import { QRCodeSVG } from 'qrcode.react';
 import { Plus, Upload, QrCode, LogOut, Loader2, Edit2, X, Utensils, Image as ImageIcon, ChevronRight, Store, ExternalLink, Trash2, Search, Users, Mail, Phone, Menu as MenuIcon } from 'lucide-react';
 
@@ -23,16 +23,16 @@ export default function AdminDashboard() {
   const [editingItem, setEditingItem] = useState<{catIdx: number, itemIdx: number, data: any} | null>(null);
   const [editingRestaurant, setEditingRestaurant] = useState<any | null>(null);
 
-  const handleItemImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleItemImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (event) => {
       const img = new Image();
-      img.onload = () => {
+      img.onload = async () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 400;
-        const MAX_HEIGHT = 400;
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
         let width = img.width;
         let height = img.height;
 
@@ -51,8 +51,21 @@ export default function AdminDashboard() {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
-        setEditingItem(prev => prev ? { ...prev, data: { ...prev.data, imageUrl: dataUrl } } : null);
+        const dataUrl = canvas.toDataURL('image/webp', 0.8);
+        
+        try {
+          setLoading(true);
+          const imageRef = await addDoc(collection(db, 'images'), {
+            dataUrl,
+            createdAt: serverTimestamp()
+          });
+          setEditingItem(prev => prev ? { ...prev, data: { ...prev.data, imageUrl: imageRef.id } } : null);
+        } catch (error) {
+          console.error("Error uploading image:", error);
+          alert("Failed to upload image.");
+        } finally {
+          setLoading(false);
+        }
       };
       img.src = event.target?.result as string;
     };
@@ -75,7 +88,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleCategoryImageUpload = (e: React.ChangeEvent<HTMLInputElement>, catIdx: number) => {
+  const handleCategoryImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, catIdx: number) => {
     const file = e.target.files?.[0];
     if (!file || !menu || !selectedRestaurant) return;
 
@@ -84,8 +97,8 @@ export default function AdminDashboard() {
       const img = new Image();
       img.onload = async () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 600;
-        const MAX_HEIGHT = 600;
+        const MAX_WIDTH = 1200;
+        const MAX_HEIGHT = 1200;
         let width = img.width;
         let height = img.height;
 
@@ -105,16 +118,24 @@ export default function AdminDashboard() {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+        const dataUrl = canvas.toDataURL('image/webp', 0.8);
         
-        const newMenu = { ...menu };
-        newMenu.categories[catIdx].imageUrl = dataUrl;
         try {
+          setLoading(true);
+          const imageRef = await addDoc(collection(db, 'images'), {
+            dataUrl,
+            createdAt: serverTimestamp()
+          });
+          
+          const newMenu = { ...menu };
+          newMenu.categories[catIdx].imageUrl = imageRef.id;
           await setDoc(doc(db, 'menus', selectedRestaurant.id), newMenu);
           setMenu(newMenu);
         } catch (error) {
           console.error("Error updating category image", error);
           alert("Failed to update category image.");
+        } finally {
+          setLoading(false);
         }
       };
       img.src = event.target?.result as string;
@@ -700,7 +721,7 @@ export default function AdminDashboard() {
 
                               {category.imageUrl && (
                                 <div className="w-full h-48 md:h-64 rounded-2xl overflow-hidden mb-8 relative group border border-slate-200 shadow-sm">
-                                  <img src={category.imageUrl} alt={category.name} className="w-full h-full object-cover" />
+                                  <ImageDisplay src={category.imageUrl} alt={category.name} className="w-full h-full object-cover" />
                                   <button 
                                     onClick={() => handleRemoveCategoryImage(category.originalIdx).catch(setComponentError)}
                                     className="absolute top-4 right-4 p-2.5 bg-white/90 backdrop-blur-sm text-red-600 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity shadow-sm hover:bg-red-50"
@@ -730,11 +751,10 @@ export default function AdminDashboard() {
 
                                     {item.imageUrl && (
                                       <div className="w-full h-48 overflow-hidden bg-slate-100 relative">
-                                        <img 
+                                        <ImageDisplay 
                                           src={item.imageUrl} 
                                           alt={item.name} 
                                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                                          referrerPolicy="no-referrer"
                                         />
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
                                         <div className="absolute bottom-4 left-5">
@@ -1009,7 +1029,7 @@ export default function AdminDashboard() {
                 <label className="block text-sm font-bold text-slate-700 mb-1.5">Dish Photo</label>
                 <div className="flex items-center gap-4 p-4 bg-slate-50 border border-slate-200 rounded-xl">
                   {editingItem.data.imageUrl ? (
-                    <img src={editingItem.data.imageUrl} alt="Preview" className="w-20 h-20 object-cover rounded-lg shadow-sm" />
+                    <ImageDisplay src={editingItem.data.imageUrl} alt="Preview" className="w-20 h-20 object-cover rounded-lg shadow-sm" />
                   ) : (
                     <div className="w-20 h-20 bg-white rounded-lg border border-slate-200 flex items-center justify-center text-slate-300 shadow-sm">
                       <ImageIcon className="w-8 h-8" />

@@ -71,9 +71,22 @@ service cloud.firestore {
              data.status in ['new', 'contacted', 'closed'];
     }
 
+    function isValidImage() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['dataUrl', 'createdAt']) &&
+             data.dataUrl is string && data.dataUrl.size() <= 1048500;
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
+
+    match /images/{imageId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidImage();
+      allow update: if false; // Images are immutable
+      allow delete: if isAdmin();
+    }
 
     match /leads/{leadId} {
       allow create: if isValidLead() && request.resource.data.status == 'new';

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { doc, getDoc, query, collection, where, getDocs } from 'firebase/firestore';
+import { ImageDisplay } from '../components/ImageDisplay';
 import { UtensilsCrossed, Search, X, ChefHat, Coffee, Wine, Utensils, Image as ImageIcon, ChevronRight, Instagram, Phone, Globe } from 'lucide-react';
 
 export default function RestaurantMenu() {
@@ -316,11 +317,10 @@ export default function RestaurantMenu() {
                 
                 {!searchQuery && category.imageUrl && (
                   <div className="w-full h-48 md:h-64 rounded-3xl overflow-hidden mb-6 relative shadow-sm border border-slate-100">
-                    <img 
+                    <ImageDisplay 
                       src={category.imageUrl} 
                       alt={category.name} 
                       className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
                     <div className="absolute bottom-4 left-6">
@@ -357,11 +357,10 @@ export default function RestaurantMenu() {
                       {/* Image Section */}
                       {item.imageUrl && (
                         <div className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-xl overflow-hidden bg-slate-50 shrink-0">
-                          <img 
+                          <ImageDisplay 
                             src={item.imageUrl} 
                             alt={item.name} 
                             className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out"
-                            referrerPolicy="no-referrer"
                           />
                         </div>
                       )}
