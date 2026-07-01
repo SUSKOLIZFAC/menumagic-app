@@ -9,7 +9,6 @@ import { Plus, Upload, QrCode, LogOut, Loader2, Edit2, X, Utensils, Image as Ima
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
-  const [viewMode, setViewMode] = useState<'restaurants' | 'leads'>('restaurants');
   const [restaurants, setRestaurants] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
   const [selectedRestaurant, setSelectedRestaurant] = useState<any | null>(null);
@@ -24,6 +23,16 @@ export default function AdminDashboard() {
   const [editingItem, setEditingItem] = useState<{catIdx: number, itemIdx: number, data: any} | null>(null);
   const [editingRestaurant, setEditingRestaurant] = useState<any | null>(null);
   const [autoFilledCount, setAutoFilledCount] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<'restaurants' | 'leads' | 'library'>('restaurants');
+
+  // Master Cloud Image Library States
+  const [syncingLibrary, setSyncingLibrary] = useState(false);
+  const [libraryItems, setLibraryItems] = useState<any[]>([]);
+  const [librarySearchQuery, setLibrarySearchQuery] = useState('');
+  const [newLibraryItemName, setNewLibraryItemName] = useState('');
+  const [newLibraryItemImage, setNewLibraryItemImage] = useState<string | null>(null);
+  const [addingToLibrary, setAddingToLibrary] = useState(false);
+  const [syncingMenuImages, setSyncingMenuImages] = useState(false);
 
   const handleItemImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -76,10 +85,21 @@ export default function AdminDashboard() {
 
   const autoFillItemImages = async (categories: any[]): Promise<{ updatedCategories: any[], count: number }> => {
     try {
-      const q = query(collection(db, 'menus'));
-      const menusSnapshot = await getDocs(q);
       const imageMap: Record<string, string> = {};
 
+      // 1. Fetch from Master Shared Library first
+      const librarySnapshot = await getDocs(collection(db, 'item_library'));
+      librarySnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data && data.name && data.imageUrl) {
+          const normalizedName = data.name.toLowerCase().trim();
+          imageMap[normalizedName] = data.imageUrl;
+        }
+      });
+
+      // 2. Fetch from existing menus as a fallback
+      const q = query(collection(db, 'menus'));
+      const menusSnapshot = await getDocs(q);
       menusSnapshot.forEach((doc) => {
         const data = doc.data();
         if (data && Array.isArray(data.categories)) {
@@ -88,7 +108,9 @@ export default function AdminDashboard() {
               category.items.forEach((item: any) => {
                 if (item && item.name && item.imageUrl) {
                   const normalizedName = item.name.toLowerCase().trim();
-                  imageMap[normalizedName] = item.imageUrl;
+                  if (!imageMap[normalizedName]) {
+                    imageMap[normalizedName] = item.imageUrl;
+                  }
                 }
               });
             }
@@ -124,6 +146,181 @@ export default function AdminDashboard() {
     }
   };
 
+  const syncItemToLibrary = async (name: string, imageUrl: string) => {
+    if (!name || !imageUrl) return;
+    const normalizedId = name.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+    if (!normalizedId) return;
+    try {
+      await setDoc(doc(db, 'item_library', normalizedId), {
+        name: name.trim(),
+        imageUrl: imageUrl,
+        updatedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error syncing item to library:", error);
+    }
+  };
+
+  const loadLibraryItems = async () => {
+    try {
+      const snapshot = await getDocs(collection(db, 'item_library'));
+      const items: any[] = [];
+      snapshot.forEach((doc) => {
+        items.push({ id: doc.id, ...doc.data() });
+      });
+      setLibraryItems(items);
+    } catch (error) {
+      console.error("Error loading library items:", error);
+    }
+  };
+
+  const handleSyncAllImages = async () => {
+    try {
+      setSyncingLibrary(true);
+      const menusSnapshot = await getDocs(collection(db, 'menus'));
+      let syncCount = 0;
+      
+      for (const menuDoc of menusSnapshot.docs) {
+        const menuData = menuDoc.data();
+        if (menuData && Array.isArray(menuData.categories)) {
+          for (const category of menuData.categories) {
+            if (Array.isArray(category.items)) {
+              for (const item of category.items) {
+                if (item && item.name && item.imageUrl) {
+                  const normalizedId = item.name.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+                  if (normalizedId) {
+                    await setDoc(doc(db, 'item_library', normalizedId), {
+                      name: item.name.trim(),
+                      imageUrl: item.imageUrl,
+                      updatedAt: new Date().toISOString()
+                    });
+                    syncCount++;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      await loadLibraryItems();
+      alert(`Successfully scanned all menus and synced ${syncCount} unique item images to your Shared Cloud Library!`);
+    } catch (error) {
+      console.error("Error syncing menus to library:", error);
+      alert("Failed to scan and sync menu images.");
+    } finally {
+      setSyncingLibrary(false);
+    }
+  };
+
+  const handleDeleteLibraryItem = async (itemId: string) => {
+    if (!window.confirm("Are you sure you want to delete this item from your shared library?")) return;
+    try {
+      await deleteDoc(doc(db, 'item_library', itemId));
+      setLibraryItems(prev => prev.filter(item => item.id !== itemId));
+    } catch (error) {
+      console.error("Error deleting library item:", error);
+      alert("Failed to delete item from library.");
+    }
+  };
+
+  const handleLibraryImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = async () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/webp', 0.8);
+        
+        try {
+          setLoading(true);
+          const imageRef = await addDoc(collection(db, 'images'), {
+            dataUrl,
+            createdAt: serverTimestamp()
+          });
+          setNewLibraryItemImage(imageRef.id);
+        } catch (error) {
+          console.error("Error uploading image to library:", error);
+          alert("Failed to upload image.");
+        } finally {
+          setLoading(false);
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAddLibraryItemDirectly = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newLibraryItemName.trim() || !newLibraryItemImage) return;
+    try {
+      setAddingToLibrary(true);
+      const normalizedId = newLibraryItemName.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+      if (!normalizedId) return;
+      await setDoc(doc(db, 'item_library', normalizedId), {
+        name: newLibraryItemName.trim(),
+        imageUrl: newLibraryItemImage,
+        updatedAt: new Date().toISOString()
+      });
+      setNewLibraryItemName('');
+      setNewLibraryItemImage(null);
+      await loadLibraryItems();
+    } catch (error) {
+      console.error("Error adding item to library directly:", error);
+      alert("Failed to add item to library.");
+    } finally {
+      setAddingToLibrary(false);
+    }
+  };
+
+  const handleManualAutoFillMenu = async () => {
+    if (!menu || !selectedRestaurant) return;
+    try {
+      setSyncingMenuImages(true);
+      const { updatedCategories, count } = await autoFillItemImages(menu.categories || []);
+      if (count > 0) {
+        const newMenu = {
+          ...menu,
+          categories: updatedCategories,
+          updatedAt: new Date().toISOString()
+        };
+        await setDoc(doc(db, 'menus', selectedRestaurant.id), newMenu);
+        setMenu(newMenu);
+        alert(`Awesome! Successfully matched and applied ${count} images from your Shared Cloud Library to this menu!`);
+      } else {
+        alert("No additional matches were found in your shared library for the missing item images.");
+      }
+    } catch (error) {
+      console.error("Error manually auto-filling menu images:", error);
+      alert("Failed to auto-fill menu images.");
+    } finally {
+      setSyncingMenuImages(false);
+    }
+  };
+
   const handleSaveItem = async () => {
     if (!editingItem || !menu || !selectedRestaurant) return;
     
@@ -135,6 +332,10 @@ export default function AdminDashboard() {
         setAutoFilledCount(1);
         setTimeout(() => setAutoFilledCount(null), 4000);
       }
+    }
+
+    if (itemData.name && itemData.imageUrl) {
+      await syncItemToLibrary(itemData.name, itemData.imageUrl);
     }
 
     const newMenu = { ...menu };
@@ -295,6 +496,11 @@ export default function AdminDashboard() {
           await fetchLeads();
         } catch (error: any) {
           setComponentError(error);
+        }
+        try {
+          await loadLibraryItems();
+        } catch (error: any) {
+          console.error("Error fetching library items on load:", error);
         }
       }
     };
@@ -512,6 +718,17 @@ export default function AdminDashboard() {
                 </span>
               )}
             </button>
+            <button
+              onClick={() => { setViewMode('library'); setIsMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                viewMode === 'library' 
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 translate-x-1' 
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <ImageIcon className={`w-5 h-5 ${viewMode === 'library' ? 'text-indigo-200' : 'text-slate-400'}`} />
+              <span>Shared Image Library</span>
+            </button>
           </div>
 
           {viewMode === 'restaurants' && (
@@ -665,6 +882,157 @@ export default function AdminDashboard() {
                 </div>
               )}
             </div>
+          ) : viewMode === 'library' ? (
+            <div className="max-w-6xl mx-auto">
+              <div className="mb-12 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div>
+                  <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4 text-slate-900">
+                    Shared Image Library
+                  </h1>
+                  <p className="text-slate-500 text-lg font-medium max-w-xl">
+                    A central repository of your dish names and their matched images. When you add or scan menus, images are matched and applied automatically!
+                  </p>
+                </div>
+                
+                <button
+                  onClick={handleSyncAllImages}
+                  disabled={syncingLibrary}
+                  className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-2xl font-bold transition-all shadow-lg shadow-indigo-100"
+                >
+                  {syncingLibrary ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Scanning menus...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-5 h-5" />
+                      Scan & Sync All Menu Images
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Direct Add & Stats Section */}
+              <div className="grid md:grid-cols-3 gap-8 mb-12">
+                <div className="md:col-span-1 bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+                  <h3 className="font-bold text-slate-900 mb-4 text-lg">Add to Shared Library</h3>
+                  <form onSubmit={handleAddLibraryItemDirectly} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Item Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Pizza Margherita"
+                        value={newLibraryItemName}
+                        onChange={(e) => setNewLibraryItemName(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all placeholder:text-slate-400"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Item Photo</label>
+                      <div className="flex items-center gap-3">
+                        {newLibraryItemImage ? (
+                          <ImageDisplay src={newLibraryItemImage} alt="Preview" className="w-12 h-12 object-cover rounded-lg border border-slate-200" />
+                        ) : (
+                          <div className="w-12 h-12 bg-slate-50 border border-dashed border-slate-300 rounded-lg flex items-center justify-center text-slate-400">
+                            <ImageIcon className="w-5 h-5" />
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          id="library-direct-upload"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleLibraryImageUpload}
+                        />
+                        <label
+                          htmlFor="library-direct-upload"
+                          className="flex-1 px-4 py-2 bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold cursor-pointer hover:bg-slate-200 transition-all text-center"
+                        >
+                          Upload Photo
+                        </label>
+                      </div>
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={addingToLibrary || !newLibraryItemName.trim() || !newLibraryItemImage}
+                      className="w-full py-2.5 bg-slate-900 hover:bg-indigo-600 disabled:opacity-50 text-white rounded-xl text-sm font-bold transition-all shadow-sm"
+                    >
+                      {addingToLibrary ? "Saving..." : "Add to Library"}
+                    </button>
+                  </form>
+                </div>
+
+                <div className="md:col-span-2 bg-indigo-50 border border-indigo-100 rounded-3xl p-8 flex flex-col justify-between">
+                  <div>
+                    <h3 className="font-bold text-indigo-900 text-2xl mb-2">Cloud Intelligence</h3>
+                    <p className="text-indigo-700/80 font-medium leading-relaxed">
+                      Every time you upload a menu page, Onemenu checks this cloud library and automatically attaches matching photos to your dishes. You can also manually trigger a match for any location at any time!
+                    </p>
+                  </div>
+                  <div className="flex gap-4 items-center mt-6">
+                    <div className="bg-white/80 backdrop-blur px-5 py-4 rounded-2xl border border-indigo-200/50">
+                      <p className="text-xs text-indigo-500 font-bold uppercase tracking-wider">Master Library Items</p>
+                      <p className="text-3xl font-extrabold text-indigo-950 mt-1">{libraryItems.length}</p>
+                    </div>
+                    <div className="bg-white/80 backdrop-blur px-5 py-4 rounded-2xl border border-indigo-200/50">
+                      <p className="text-xs text-indigo-500 font-bold uppercase tracking-wider">Locations Protected</p>
+                      <p className="text-3xl font-extrabold text-indigo-950 mt-1">{restaurants.length}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Library Grid & Search */}
+              <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                  <h3 className="font-bold text-slate-900 text-xl">Cloud Library Items</h3>
+                  <div className="relative w-full md:w-80">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                    <input
+                      type="text"
+                      placeholder="Search shared library..."
+                      value={librarySearchQuery}
+                      onChange={(e) => setLibrarySearchQuery(e.target.value)}
+                      className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all placeholder:text-slate-400"
+                    />
+                  </div>
+                </div>
+
+                {libraryItems.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                    {libraryItems
+                      .filter(item => (item.name || '').toLowerCase().includes(librarySearchQuery.toLowerCase()))
+                      .map(item => (
+                        <div key={item.id} className="group relative bg-slate-50 rounded-2xl p-3 border border-slate-100 flex flex-col hover:shadow-md transition-all duration-300 animate-in fade-in zoom-in-95 duration-200">
+                          <div className="aspect-square bg-white rounded-xl overflow-hidden mb-3 border border-slate-200/60 relative">
+                            <ImageDisplay src={item.imageUrl} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                          </div>
+                          <p className="font-bold text-slate-950 text-sm truncate pr-6">{item.name}</p>
+                          <p className="text-[10px] text-slate-400 font-medium mt-1 uppercase tracking-wider">Synced</p>
+                          
+                          <button
+                            onClick={() => handleDeleteLibraryItem(item.id)}
+                            className="absolute right-3 bottom-3 p-1.5 bg-white border border-slate-100 hover:border-red-100 text-slate-400 hover:text-red-500 rounded-lg hover:shadow-sm transition-all opacity-0 group-hover:opacity-100"
+                            title="Delete from Library"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <ImageIcon className="w-6 h-6 text-slate-300" />
+                    </div>
+                    <p className="text-slate-500 font-medium">No items in your shared library yet.</p>
+                    <p className="text-slate-400 text-sm mt-1">Click the sync button above to import photos from your existing menus!</p>
+                  </div>
+                )}
+              </div>
+            </div>
           ) : selectedRestaurant ? (
             <div className="max-w-6xl mx-auto">
               {/* Header */}
@@ -691,6 +1059,20 @@ export default function AdminDashboard() {
                 </div>
                 
                 <div className="flex gap-3 flex-wrap">
+                  {menu && (
+                    <button
+                      onClick={handleManualAutoFillMenu}
+                      disabled={syncingMenuImages}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-indigo-600 hover:text-indigo-700 rounded-xl text-sm font-bold hover:bg-indigo-50 hover:border-indigo-200 transition-all shadow-sm disabled:opacity-50"
+                    >
+                      {syncingMenuImages ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <ImageIcon className="w-4 h-4 text-indigo-500" />
+                      )}
+                      Auto-fill Images
+                    </button>
+                  )}
                   <a 
                     href={menuUrl} 
                     target="_blank" 
