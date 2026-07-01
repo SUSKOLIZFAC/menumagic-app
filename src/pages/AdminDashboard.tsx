@@ -23,6 +23,7 @@ export default function AdminDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [editingItem, setEditingItem] = useState<{catIdx: number, itemIdx: number, data: any} | null>(null);
   const [editingRestaurant, setEditingRestaurant] = useState<any | null>(null);
+  const [autoFilledCount, setAutoFilledCount] = useState<number | null>(null);
 
   const handleItemImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -73,11 +74,71 @@ export default function AdminDashboard() {
     reader.readAsDataURL(file);
   };
 
+  const autoFillItemImages = async (categories: any[]): Promise<{ updatedCategories: any[], count: number }> => {
+    try {
+      const q = query(collection(db, 'menus'));
+      const menusSnapshot = await getDocs(q);
+      const imageMap: Record<string, string> = {};
+
+      menusSnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data && Array.isArray(data.categories)) {
+          data.categories.forEach((category: any) => {
+            if (Array.isArray(category.items)) {
+              category.items.forEach((item: any) => {
+                if (item && item.name && item.imageUrl) {
+                  const normalizedName = item.name.toLowerCase().trim();
+                  imageMap[normalizedName] = item.imageUrl;
+                }
+              });
+            }
+          });
+        }
+      });
+
+      let matchCount = 0;
+      const updatedCategories = categories.map((category: any) => {
+        const updatedItems = (category.items || []).map((item: any) => {
+          if (!item.imageUrl && item.name) {
+            const normalizedName = item.name.toLowerCase().trim();
+            if (imageMap[normalizedName]) {
+              matchCount++;
+              return {
+                ...item,
+                imageUrl: imageMap[normalizedName]
+              };
+            }
+          }
+          return item;
+        });
+        return {
+          ...category,
+          items: updatedItems
+        };
+      });
+
+      return { updatedCategories, count: matchCount };
+    } catch (error) {
+      console.error("Error auto-filling item images from cloud:", error);
+      return { updatedCategories: categories, count: 0 };
+    }
+  };
+
   const handleSaveItem = async () => {
     if (!editingItem || !menu || !selectedRestaurant) return;
     
+    let itemData = { ...editingItem.data };
+    if (!itemData.imageUrl && itemData.name) {
+      const { updatedCategories, count } = await autoFillItemImages([ { items: [itemData] } ]);
+      if (count > 0) {
+        itemData = updatedCategories[0].items[0];
+        setAutoFilledCount(1);
+        setTimeout(() => setAutoFilledCount(null), 4000);
+      }
+    }
+
     const newMenu = { ...menu };
-    newMenu.categories[editingItem.catIdx].items[editingItem.itemIdx] = editingItem.data;
+    newMenu.categories[editingItem.catIdx].items[editingItem.itemIdx] = itemData;
     
     try {
       await setDoc(doc(db, 'menus', selectedRestaurant.id), newMenu);
@@ -338,7 +399,7 @@ export default function AdminDashboard() {
     try {
       setUploading(true);
       
-      const imagePromises = Array.from(files).map((file) => {
+      const imagePromises = Array.from(files).map((file: File) => {
         return new Promise<{base64Image: string, mimeType: string}>((resolve, reject) => {
           const reader = new FileReader();
           reader.onloadend = () => {
@@ -357,10 +418,16 @@ export default function AdminDashboard() {
       // Call Gemini
       const digitizedMenu = await digitizeMenuImage(images);
       
+      // Auto-fill repeating images
+      const { updatedCategories, count } = await autoFillItemImages(digitizedMenu.categories || []);
+      if (count > 0) {
+        setAutoFilledCount(count);
+      }
+      
       // Save to Firestore
       const menuData = {
         restaurantId: selectedRestaurant.id,
-        categories: digitizedMenu.categories || [],
+        categories: updatedCategories,
         updatedAt: new Date().toISOString()
       };
       
@@ -677,6 +744,26 @@ export default function AdminDashboard() {
               <div className="grid lg:grid-cols-3 gap-8">
                 {/* Menu Management */}
                 <div className="lg:col-span-2 space-y-8">
+                  {autoFilledCount !== null && autoFilledCount > 0 && (
+                    <div className="bg-indigo-50 border border-indigo-200 text-indigo-800 p-5 rounded-3xl flex items-center justify-between shadow-sm animate-in slide-in-from-top-4 duration-300">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-indigo-100 rounded-xl">
+                          <ImageIcon className="w-5 h-5 text-indigo-600" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-sm">Cloud Auto-Image Match</p>
+                          <p className="text-xs text-indigo-600/90 font-medium">Successfully matched and applied {autoFilledCount} item {autoFilledCount === 1 ? 'image' : 'images'} from your menu library!</p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => setAutoFilledCount(null)}
+                        className="text-indigo-400 hover:text-indigo-600 p-1 rounded-lg hover:bg-indigo-100/50 transition-all"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
                   {menu ? (
                     <div className="space-y-8">
                       {/* Search Bar */}
@@ -872,13 +959,13 @@ export default function AdminDashboard() {
                           const printWindow = window.open('', '_blank');
                           if (printWindow) {
                             const svgHtml = document.querySelector('.bg-slate-50.p-6 svg')?.outerHTML || '';
-                            const cardsHtml = Array(20).fill(`
+                            const cardsHtml = `
                               <div class="card">
                                 <div class="title">Scan for Menu</div>
                                 <div class="qr-wrapper">${svgHtml}</div>
                                 <div class="subtitle">${selectedRestaurant.name}</div>
                               </div>
-                            `).join('');
+                            `;
 
                             printWindow.document.write(`
                               <html>
@@ -886,58 +973,56 @@ export default function AdminDashboard() {
                                   <title>Print QR Codes (A4)</title>
                                   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet">
                                   <style>
-                                    @page { size: A4; margin: 10mm; }
+                                    @page { size: A4; margin: 0; }
                                     body { 
                                       margin: 0; 
                                       padding: 0; 
                                       font-family: system-ui, -apple-system, sans-serif; 
                                       -webkit-print-color-adjust: exact; 
-                                    }
-                                    .grid {
-                                      display: grid;
-                                      grid-template-columns: repeat(4, 1fr);
-                                      grid-template-rows: repeat(5, 1fr);
-                                      gap: 4mm;
-                                      height: 277mm; /* A4 height (297) - margins (20) */
-                                      box-sizing: border-box;
+                                      display: flex;
+                                      align-items: center;
+                                      justify-content: center;
+                                      height: 100vh;
+                                      width: 100vw;
+                                      background: #ffffff;
                                     }
                                     .card {
+                                      width: 100%;
+                                      height: 100%;
                                       display: flex;
                                       flex-direction: column;
                                       align-items: center;
                                       justify-content: center;
-                                      border: 1px dashed #cbd5e1;
-                                      border-radius: 12px;
-                                      padding: 8px;
+                                      padding: 20mm;
                                       text-align: center;
+                                      box-sizing: border-box;
                                     }
                                     .qr-wrapper svg {
-                                      width: 30mm;
-                                      height: 30mm;
-                                      margin: 8px 0;
+                                      width: 160mm;
+                                      height: 160mm;
+                                      margin: 20mm 0;
                                     }
                                     .title { 
-                                      font-size: 11px; 
-                                      font-weight: 800; 
+                                      font-size: 48px; 
+                                      font-weight: 900; 
                                       color: #0f172a; 
                                       text-transform: uppercase;
-                                      letter-spacing: 0.05em;
+                                      letter-spacing: 0.1em;
                                     }
                                     .subtitle { 
-                                      font-size: 12px; 
+                                      font-size: 56px; 
                                       font-family: 'Playfair Display', Georgia, serif;
                                       font-style: italic;
-                                      font-weight: 600; 
+                                      font-weight: 700; 
                                       color: #334155; 
-                                      margin-top: 2px;
                                       letter-spacing: 0.02em;
+                                      max-width: 90%;
+                                      line-height: 1.2;
                                     }
                                   </style>
                                 </head>
                                 <body>
-                                  <div class="grid">
-                                    ${cardsHtml}
-                                  </div>
+                                  ${cardsHtml}
                                   <script>
                                     window.onload = () => window.print();
                                   </script>
