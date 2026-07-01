@@ -83,17 +83,75 @@ export default function AdminDashboard() {
     reader.readAsDataURL(file);
   };
 
+  const getLevenshteinDistance = (a: string, b: string): number => {
+    const tmp: number[][] = [];
+    for (let i = 0; i <= a.length; i++) {
+      tmp[i] = [i];
+    }
+    for (let j = 0; j <= b.length; j++) {
+      tmp[0][j] = j;
+    }
+    for (let i = 1; i <= a.length; i++) {
+      for (let j = 1; j <= b.length; j++) {
+        tmp[i][j] = a[i - 1] === b[j - 1]
+          ? tmp[i - 1][j - 1]
+          : Math.min(tmp[i - 1][j] + 1, tmp[i][j - 1] + 1, tmp[i - 1][j - 1] + 1);
+      }
+    }
+    return tmp[a.length][b.length];
+  };
+
+  const findBestMatch = (targetName: string, library: { name: string, imageUrl: string }[]): string | null => {
+    const t = targetName.toLowerCase().trim();
+    if (!t) return null;
+
+    // 1. Try exact match first (case-insensitive, trimmed)
+    const exactMatch = library.find(item => item.name.toLowerCase().trim() === t);
+    if (exactMatch) return exactMatch.imageUrl;
+
+    // 2. Try close matches
+    let bestImg: string | null = null;
+    let minDistance = Infinity;
+
+    for (const libItem of library) {
+      const libName = libItem.name.toLowerCase().trim();
+      if (!libName) continue;
+
+      // Direct substring check (e.g. "Cheeseburger" vs "Burger" or plural)
+      if (libName.includes(t) || t.includes(libName)) {
+        const lengthDiff = Math.abs(libName.length - t.length);
+        if (lengthDiff <= 3) {
+          return libItem.imageUrl;
+        }
+      }
+
+      const dist = getLevenshteinDistance(t, libName);
+      const maxLen = Math.max(t.length, libName.length);
+      
+      let allowedDist = 0;
+      if (maxLen > 12) allowedDist = 3;
+      else if (maxLen >= 8) allowedDist = 2;
+      else if (maxLen >= 5) allowedDist = 1;
+
+      if (dist <= allowedDist && dist < minDistance) {
+        minDistance = dist;
+        bestImg = libItem.imageUrl;
+      }
+    }
+
+    return bestImg;
+  };
+
   const autoFillItemImages = async (categories: any[]): Promise<{ updatedCategories: any[], count: number }> => {
     try {
-      const imageMap: Record<string, string> = {};
+      const libraryList: { name: string, imageUrl: string }[] = [];
 
       // 1. Fetch from Master Shared Library first
       const librarySnapshot = await getDocs(collection(db, 'item_library'));
       librarySnapshot.forEach((doc) => {
         const data = doc.data();
         if (data && data.name && data.imageUrl) {
-          const normalizedName = data.name.toLowerCase().trim();
-          imageMap[normalizedName] = data.imageUrl;
+          libraryList.push({ name: data.name, imageUrl: data.imageUrl });
         }
       });
 
@@ -107,9 +165,10 @@ export default function AdminDashboard() {
             if (Array.isArray(category.items)) {
               category.items.forEach((item: any) => {
                 if (item && item.name && item.imageUrl) {
-                  const normalizedName = item.name.toLowerCase().trim();
-                  if (!imageMap[normalizedName]) {
-                    imageMap[normalizedName] = item.imageUrl;
+                  // Only add if not already in libraryList (avoid duplicates)
+                  const exists = libraryList.some(libItem => libItem.name.toLowerCase().trim() === item.name.toLowerCase().trim());
+                  if (!exists) {
+                    libraryList.push({ name: item.name, imageUrl: item.imageUrl });
                   }
                 }
               });
@@ -122,12 +181,12 @@ export default function AdminDashboard() {
       const updatedCategories = categories.map((category: any) => {
         const updatedItems = (category.items || []).map((item: any) => {
           if (!item.imageUrl && item.name) {
-            const normalizedName = item.name.toLowerCase().trim();
-            if (imageMap[normalizedName]) {
+            const matchedImage = findBestMatch(item.name, libraryList);
+            if (matchedImage) {
               matchCount++;
               return {
                 ...item,
-                imageUrl: imageMap[normalizedName]
+                imageUrl: matchedImage
               };
             }
           }
@@ -171,6 +230,52 @@ export default function AdminDashboard() {
       setLibraryItems(items);
     } catch (error) {
       console.error("Error loading library items:", error);
+    }
+  };
+
+  const autoSyncExistingMenusToLibrary = async () => {
+    try {
+      // Fetch all existing library items to know what is already saved
+      const librarySnapshot = await getDocs(collection(db, 'item_library'));
+      const existingInLibrary = new Set<string>();
+      librarySnapshot.forEach((doc) => {
+        existingInLibrary.add(doc.id);
+      });
+
+      // Fetch all menus from all restaurants
+      const menusSnapshot = await getDocs(collection(db, 'menus'));
+      let syncCount = 0;
+      
+      for (const menuDoc of menusSnapshot.docs) {
+        const menuData = menuDoc.data();
+        if (menuData && Array.isArray(menuData.categories)) {
+          for (const category of menuData.categories) {
+            if (Array.isArray(category.items)) {
+              for (const item of category.items) {
+                if (item && item.name && item.imageUrl) {
+                  const normalizedId = item.name.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+                  if (normalizedId && !existingInLibrary.has(normalizedId)) {
+                    await setDoc(doc(db, 'item_library', normalizedId), {
+                      name: item.name.trim(),
+                      imageUrl: item.imageUrl,
+                      updatedAt: new Date().toISOString()
+                    });
+                    existingInLibrary.add(normalizedId);
+                    syncCount++;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      if (syncCount > 0) {
+        console.log(`Auto-synced ${syncCount} food item images to the global library.`);
+        await loadLibraryItems();
+      }
+    } catch (error) {
+      console.error("Error auto-syncing existing menus to library:", error);
     }
   };
 
@@ -499,6 +604,7 @@ export default function AdminDashboard() {
         }
         try {
           await loadLibraryItems();
+          await autoSyncExistingMenusToLibrary();
         } catch (error: any) {
           console.error("Error fetching library items on load:", error);
         }
