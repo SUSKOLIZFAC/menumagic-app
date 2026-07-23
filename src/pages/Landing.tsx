@@ -264,10 +264,11 @@ export default function Landing() {
               href={whatsappUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 text-xs sm:text-sm font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 px-3.5 py-2 rounded-full transition-colors shadow-sm"
+              aria-label="WhatsApp"
+              className="p-2.5 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 rounded-full transition-all shadow-sm hover:scale-105 active:scale-95 flex items-center justify-center"
+              title={t.whatsappContact}
             >
-              <WhatsAppIcon className="w-4 h-4 fill-emerald-600" />
-              <span className="hidden sm:inline">{t.whatsappNumber}</span>
+              <WhatsAppIcon className="w-5 h-5 fill-emerald-600" />
             </a>
             <button 
               onClick={toggleLanguage}
@@ -792,7 +793,7 @@ export default function Landing() {
                       </div>
                       <div>
                         <p className="text-xs font-bold text-emerald-800">{t.whatsappModalMsg}</p>
-                        <p className="text-sm font-bold text-slate-900">{t.whatsappNumber}</p>
+                        <p className="text-sm font-bold text-slate-900">{t.whatsappContact}</p>
                       </div>
                     </div>
                     <span className="px-3.5 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-bold group-hover:bg-emerald-700 transition-colors shrink-0">
@@ -882,11 +883,10 @@ export default function Landing() {
             href={whatsappUrl} 
             target="_blank" 
             rel="noopener noreferrer"
-            className="flex items-center gap-2 text-slate-500 hover:text-emerald-600 transition-colors text-sm font-bold"
+            className="text-slate-400 hover:text-emerald-600 transition-colors"
             aria-label="WhatsApp"
           >
-            <WhatsAppIcon className="w-5 h-5 fill-current" />
-            <span>{t.whatsappNumber}</span>
+            <WhatsAppIcon className="w-6 h-6 fill-current" />
           </a>
         </div>
         <p className="text-slate-400 text-sm font-medium">© {new Date().getFullYear()} Onemenu. All rights reserved.</p>
