@@ -41,7 +41,7 @@ const translations = {
     step2Title: "2. Guests Scan & Browse",
     step2Desc: "Guests point their phone camera. No app downloads required. They instantly see a stunning visual menu.",
     step3Title: "3. Update Anytime",
-    step3Desc: "Log into your dashboard to change prices, add daily specials, or upload new dish photos instantly.",
+    step3Desc: "Contact us anytime to change prices, update daily specials, or refresh your dish photos whenever you want.",
     pricingTitle: "One simple price.",
     pricingDesc: "Everything you need to modernize your restaurant, with zero hidden fees.",
     oneOfferOnly: "One Offer Only",
@@ -118,7 +118,7 @@ const translations = {
     step2Title: "2. Les clients scannent et parcourent",
     step2Desc: "Les clients pointent l'appareil photo de leur téléphone. Aucun téléchargement d'application requis. Ils voient instantanément un menu visuel époustouflant.",
     step3Title: "3. Mettez à jour à tout moment",
-    step3Desc: "Connectez-vous à votre tableau de bord pour modifier les prix, ajouter des plats du jour ou télécharger instantanément de nouvelles photos de plats.",
+    step3Desc: "Contactez-nous à tout moment pour modifier vos prix, mettre à jour vos plats du jour ou vos photos de plats quand vous le souhaitez.",
     pricingTitle: "Un prix simple.",
     pricingDesc: "Tout ce dont vous avez besoin pour moderniser votre restaurant, sans frais cachés.",
     oneOfferOnly: "Une seule offre",
@@ -659,8 +659,8 @@ export default function Landing() {
               </div>
 
               <div className="mb-4 flex items-baseline gap-2">
-                <span className="text-7xl font-black text-slate-900 tracking-tight">150</span>
-                <span className="text-2xl font-bold text-slate-500">MAD</span>
+                <span className="text-7xl font-black text-slate-900 tracking-tight">200</span>
+                <span className="text-2xl font-bold text-slate-500">DH</span>
               </div>
               <p className="text-slate-500 font-medium mb-8 text-lg pb-8 border-b border-slate-100">{t.everythingIncluded}</p>
 
