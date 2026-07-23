@@ -155,16 +155,47 @@ export default function RestaurantMenu() {
     );
   }
 
-  const safeSearchQuery = (searchQuery || '').toLowerCase().trim();
+  const normalizeStr = (str: string) => {
+    return (str || '')
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim();
+  };
 
-  const filteredCategories = (menu?.categories || []).map((cat: any) => ({
-    ...cat,
-    items: (cat.items || []).filter((item: any) => {
-      const nameMatch = (item?.name || '').toLowerCase().includes(safeSearchQuery);
-      const descMatch = (item?.description || '').toLowerCase().includes(safeSearchQuery);
-      return nameMatch || descMatch;
-    })
-  })).filter((cat: any) => cat.items && cat.items.length > 0);
+  const safeSearchQuery = normalizeStr(searchQuery);
+
+  const filteredCategories = (menu?.categories || []).map((cat: any) => {
+    const catName = normalizeStr(cat?.name);
+    // Check if category matches search query (e.g. "Pizza" or "Pizzas")
+    const catNameMatch = safeSearchQuery.length > 0 && (
+      catName.includes(safeSearchQuery) || 
+      safeSearchQuery.includes(catName) ||
+      (safeSearchQuery.endsWith('s') && catName.includes(safeSearchQuery.slice(0, -1))) ||
+      (catName.endsWith('s') && safeSearchQuery.includes(catName.slice(0, -1)))
+    );
+
+    return {
+      ...cat,
+      items: (cat.items || []).filter((item: any) => {
+        if (!safeSearchQuery) return true;
+
+        const itemName = normalizeStr(item?.name);
+        const itemDesc = normalizeStr(item?.description);
+
+        const nameMatch = itemName.includes(safeSearchQuery);
+        const descMatch = itemDesc.includes(safeSearchQuery);
+
+        // Multi-word support (e.g., "cheese pizza")
+        const searchWords = safeSearchQuery.split(/\s+/).filter(w => w.length > 1);
+        const wordsMatch = searchWords.length > 1 && searchWords.every(word => 
+          itemName.includes(word) || itemDesc.includes(word) || catName.includes(word)
+        );
+
+        return catNameMatch || nameMatch || descMatch || wordsMatch;
+      })
+    };
+  }).filter((cat: any) => cat.items && cat.items.length > 0);
 
   // If searching, we don't use active category filtering
   const displayCategories = safeSearchQuery 
@@ -259,7 +290,7 @@ export default function RestaurantMenu() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <input
               type="text"
-              placeholder="Search dishes..."
+              placeholder="Search dishes, pizzas, drinks..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-white border border-slate-200 rounded-2xl py-3.5 pl-12 pr-12 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all font-medium text-base shadow-sm"
@@ -308,9 +339,16 @@ export default function RestaurantMenu() {
       {/* Menu Content */}
       <main className="relative z-10 max-w-3xl mx-auto px-4">
         {displayCategories.length === 0 ? (
-          <div className="text-center py-20">
-            <Search className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-            <p className="text-lg text-slate-400 font-medium">No dishes found</p>
+          <div className="text-center py-20 bg-white rounded-3xl border border-slate-100 p-8 shadow-sm">
+            <Search className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+            <p className="text-lg text-slate-700 font-bold mb-1">No dishes found</p>
+            <p className="text-sm text-slate-400 mb-6">Nothing matching "{searchQuery}" in our menu</p>
+            <button
+              onClick={() => setSearchQuery('')}
+              className="px-5 py-2.5 bg-slate-900 text-white rounded-full text-sm font-semibold hover:bg-indigo-600 transition-colors shadow-sm"
+            >
+              Clear Search
+            </button>
           </div>
         ) : (
           <div className="space-y-10">
