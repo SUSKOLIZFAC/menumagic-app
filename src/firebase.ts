@@ -65,8 +65,9 @@ export interface FirestoreErrorInfo {
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errorMessage = error instanceof Error ? error.message : String(error);
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errorMessage,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
@@ -82,7 +83,23 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     },
     operationType,
     path
-  }
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  };
+  console.warn('Firestore Operation Notice:', JSON.stringify(errInfo));
+  return errInfo;
 }
+
+export function sanitizeForFirestore<T>(data: T): T {
+  if (data === undefined) return null as unknown as T;
+  if (data === null || typeof data !== 'object') return data;
+  if (Array.isArray(data)) {
+    return data.map(item => sanitizeForFirestore(item)) as unknown as T;
+  }
+  const result: Record<string, any> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (value !== undefined) {
+      result[key] = sanitizeForFirestore(value);
+    }
+  }
+  return result as T;
+}
+

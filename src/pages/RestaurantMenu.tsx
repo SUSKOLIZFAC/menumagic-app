@@ -76,17 +76,9 @@ export default function RestaurantMenu() {
     window.location.reload();
   };
 
-  const [componentError, setComponentError] = useState<Error | null>(null);
-
-  useEffect(() => {
-    if (componentError) {
-      throw componentError;
-    }
-  }, [componentError]);
-
   useEffect(() => {
     if (restaurantId) {
-      fetchData().catch(setComponentError);
+      fetchData();
     }
   }, [restaurantId]);
 
@@ -113,17 +105,32 @@ export default function RestaurantMenu() {
 
       if (restData) {
         setRestaurant(restData);
+        try { localStorage.setItem(`cached_restaurant_${restaurantId}`, JSON.stringify(restData)); } catch (_) {}
         const menuDoc = await getDoc(doc(db, 'menus', actualRestaurantId));
         if (menuDoc.exists()) {
           const menuData: any = { id: menuDoc.id, ...menuDoc.data() };
           setMenu(menuData);
+          try { localStorage.setItem(`cached_menu_${actualRestaurantId}`, JSON.stringify(menuData)); } catch (_) {}
           if (menuData.categories && menuData.categories.length > 0) {
             setActiveCategory('All');
           }
         }
       }
     } catch (error) {
+      console.warn("Could not fetch menu from Firestore:", error);
       handleFirestoreError(error, OperationType.GET, `menus/${restaurantId}`);
+      try {
+        const cachedRest = localStorage.getItem(`cached_restaurant_${restaurantId}`);
+        const cachedMenu = localStorage.getItem(`cached_menu_${restaurantId}`);
+        if (cachedRest) setRestaurant(JSON.parse(cachedRest));
+        if (cachedMenu) {
+          const parsed = JSON.parse(cachedMenu);
+          setMenu(parsed);
+          if (parsed.categories && parsed.categories.length > 0) {
+            setActiveCategory('All');
+          }
+        }
+      } catch (_) {}
     } finally {
       setLoading(false);
     }

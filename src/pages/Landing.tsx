@@ -63,6 +63,11 @@ const translations = {
     formPhone: "Phone Number",
     formSubmit: "Submit Request",
     formSubmitting: "Submitting...",
+    whatsappContact: "Chat on WhatsApp",
+    whatsappHeroBtn: "Contact via WhatsApp",
+    whatsappModalMsg: "Prefer quick messaging?",
+    whatsappOrText: "Or contact us directly on WhatsApp",
+    whatsappNumber: "+212 690 555 754",
     navFeatures: "Features",
     navHowItWorks: "How it Works",
     navPricing: "Pricing",
@@ -135,6 +140,11 @@ const translations = {
     formPhone: "Numéro de téléphone",
     formSubmit: "Soumettre la demande",
     formSubmitting: "Soumission en cours...",
+    whatsappContact: "Discuter sur WhatsApp",
+    whatsappHeroBtn: "Contactez via WhatsApp",
+    whatsappModalMsg: "Vous préférez les messages instantanés ?",
+    whatsappOrText: "Ou contactez-nous directement sur WhatsApp",
+    whatsappNumber: "+212 690 555 754",
     navFeatures: "Avantages",
     navHowItWorks: "Fonctionnement",
     navPricing: "Tarifs",
@@ -159,15 +169,14 @@ export default function Landing() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [scanned, setScanned] = useState(false);
   const [lang, setLang] = useState<Language>('en');
-  const [componentError, setComponentError] = useState<Error | null>(null);
-
-  useEffect(() => {
-    if (componentError) {
-      throw componentError;
-    }
-  }, [componentError]);
 
   const t = translations[lang];
+  const WHATSAPP_PHONE = "212690555754";
+  const whatsappUrl = `https://wa.me/${WHATSAPP_PHONE}?text=${encodeURIComponent(
+    lang === 'fr' 
+      ? "Bonjour Onemenu ! Je souhaite avoir plus d'informations sur votre menu numérique." 
+      : "Hello Onemenu! I would like to get more information about your digital menu."
+  )}`;
 
   // Form state
   const [formData, setFormData] = useState({
@@ -195,22 +204,27 @@ export default function Landing() {
         status: 'new',
         createdAt: new Date().toISOString()
       });
-      
+    } catch (error) {
+      console.warn("Could not save lead to Firestore (saving locally):", error);
+      handleFirestoreError(error, OperationType.CREATE, 'leads');
+      try {
+        const existingLeads = JSON.parse(localStorage.getItem('cached_leads') || '[]');
+        existingLeads.unshift({
+          id: `local_lead_${Date.now()}`,
+          ...formData,
+          status: 'new',
+          createdAt: new Date().toISOString()
+        });
+        localStorage.setItem('cached_leads', JSON.stringify(existingLeads));
+      } catch (_) {}
+    } finally {
       setIsSubmitted(true);
       setTimeout(() => {
         setIsModalOpen(false);
         setIsSubmitted(false);
         setFormData({ restaurantName: '', contactPerson: '', email: '', phone: '' });
+        setIsSubmitting(false);
       }, 3000);
-    } catch (error) {
-      try {
-        handleFirestoreError(error, OperationType.CREATE, 'leads');
-      } catch (e: any) {
-        setComponentError(e);
-      }
-      alert("There was an error submitting your request. Please try again.");
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -245,7 +259,16 @@ export default function Landing() {
             <a href="#pricing" className="text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors">{t.navPricing}</a>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-xs sm:text-sm font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 px-3.5 py-2 rounded-full transition-colors shadow-sm"
+            >
+              <WhatsAppIcon className="w-4 h-4 fill-emerald-600" />
+              <span className="hidden sm:inline">{t.whatsappNumber}</span>
+            </a>
             <button 
               onClick={toggleLanguage}
               className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors bg-slate-100/50 px-3 py-1.5 rounded-full"
@@ -255,7 +278,7 @@ export default function Landing() {
             </button>
             <button 
               onClick={() => setIsModalOpen(true)}
-              className="text-sm font-bold bg-slate-900 text-white px-6 py-2.5 rounded-full hover:bg-indigo-600 transition-colors shadow-md"
+              className="text-sm font-bold bg-slate-900 text-white px-5 sm:px-6 py-2.5 rounded-full hover:bg-indigo-600 transition-colors shadow-md"
             >
               {t.getStarted}
             </button>
@@ -295,6 +318,15 @@ export default function Landing() {
               >
                 {t.upgradeBtn} <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-3 bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-4 rounded-full font-bold text-lg transition-all duration-300 shadow-[0_10px_30px_-10px_rgba(16,185,129,0.5)] hover:-translate-y-1"
+              >
+                <WhatsAppIcon className="w-6 h-6 fill-white" />
+                <span>{t.whatsappHeroBtn}</span>
+              </a>
             </div>
 
             {/* Trust Badges */}
@@ -653,6 +685,16 @@ export default function Landing() {
               >
                 {t.claimOffer}
               </button>
+
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full mt-3 flex items-center justify-center gap-2 bg-emerald-50 text-emerald-800 border border-emerald-200 py-3.5 rounded-2xl font-bold text-base hover:bg-emerald-100 transition-colors"
+              >
+                <WhatsAppIcon className="w-5 h-5 fill-emerald-600" />
+                <span>{t.whatsappOrText}</span>
+              </a>
             </div>
           </div>
         </div>
@@ -667,14 +709,40 @@ export default function Landing() {
         <div className="relative z-10 max-w-4xl mx-auto px-6 text-center py-16">
           <h2 className="text-4xl md:text-6xl font-extrabold text-white mb-8 tracking-tight">{t.ctaTitle}</h2>
           <p className="text-xl text-indigo-200 mb-12 font-light max-w-2xl mx-auto">{t.ctaDesc}</p>
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="bg-white text-slate-900 px-10 py-5 rounded-full font-bold text-xl hover:bg-indigo-50 transition-colors shadow-[0_0_40px_rgba(255,255,255,0.1)] hover:scale-105 active:scale-95"
-          >
-            {t.getDigitalMenu}
-          </button>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className="bg-white text-slate-900 px-10 py-5 rounded-full font-bold text-xl hover:bg-indigo-50 transition-colors shadow-[0_0_40px_rgba(255,255,255,0.1)] hover:scale-105 active:scale-95"
+            >
+              {t.getDigitalMenu}
+            </button>
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-emerald-500 text-white px-8 py-5 rounded-full font-bold text-xl hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-900/30 hover:scale-105 active:scale-95 flex items-center gap-3"
+            >
+              <WhatsAppIcon className="w-6 h-6 fill-white" />
+              <span>WhatsApp</span>
+            </a>
+          </div>
         </div>
       </section>
+
+      {/* Floating WhatsApp Button */}
+      <a
+        href={whatsappUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={t.whatsappContact}
+        className="fixed bottom-6 right-6 z-50 bg-emerald-500 hover:bg-emerald-600 text-white p-3.5 sm:px-5 sm:py-3.5 rounded-full shadow-2xl flex items-center gap-3 font-bold text-sm transition-all duration-300 hover:scale-105 group border border-emerald-400/40"
+      >
+        <div className="relative flex items-center justify-center">
+          <WhatsAppIcon className="w-6 h-6 fill-white" />
+          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-white rounded-full animate-ping"></span>
+        </div>
+        <span className="hidden sm:inline-block font-semibold tracking-wide">{t.whatsappContact}</span>
+      </a>
 
       {/* Contact Modal */}
       <AnimatePresence>
@@ -708,10 +776,31 @@ export default function Landing() {
                 </div>
               ) : (
                 <>
-                  <h2 className="text-3xl font-bold text-slate-900 mb-3 tracking-tight">{t.modalTitle}</h2>
-                  <p className="text-slate-600 mb-8">{t.modalDesc}</p>
+                  <h2 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight">{t.modalTitle}</h2>
+                  <p className="text-slate-600 mb-6">{t.modalDesc}</p>
                   
-                  <form onSubmit={handleSubmit} className="space-y-5">
+                  {/* WhatsApp Direct Option Banner */}
+                  <a
+                    href={whatsappUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mb-6 p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between gap-3 hover:bg-emerald-100/80 transition-colors group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-emerald-500 text-white rounded-xl">
+                        <WhatsAppIcon className="w-5 h-5 fill-white" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-emerald-800">{t.whatsappModalMsg}</p>
+                        <p className="text-sm font-bold text-slate-900">{t.whatsappNumber}</p>
+                      </div>
+                    </div>
+                    <span className="px-3.5 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-bold group-hover:bg-emerald-700 transition-colors shrink-0">
+                      WhatsApp
+                    </span>
+                  </a>
+
+                  <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
                       <label className="block text-sm font-bold text-slate-700 mb-1.5">{t.formName}</label>
                       <input 
@@ -779,14 +868,27 @@ export default function Landing() {
           </div>
           <span>Onemenu<span className="text-indigo-600">.</span></span>
         </div>
-        <a 
-          href="https://www.instagram.com/onemenu.app/?utm_source=ig_web_button_share_sheet" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="text-slate-400 hover:text-pink-600 transition-colors"
-        >
-          <Instagram className="w-6 h-6" />
-        </a>
+        <div className="flex items-center gap-6">
+          <a 
+            href="https://www.instagram.com/onemenu.app/?utm_source=ig_web_button_share_sheet" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-slate-400 hover:text-pink-600 transition-colors"
+            aria-label="Instagram"
+          >
+            <Instagram className="w-6 h-6" />
+          </a>
+          <a 
+            href={whatsappUrl} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 text-slate-500 hover:text-emerald-600 transition-colors text-sm font-bold"
+            aria-label="WhatsApp"
+          >
+            <WhatsAppIcon className="w-5 h-5 fill-current" />
+            <span>{t.whatsappNumber}</span>
+          </a>
+        </div>
         <p className="text-slate-400 text-sm font-medium">© {new Date().getFullYear()} Onemenu. All rights reserved.</p>
       </footer>
     </div>
@@ -799,6 +901,15 @@ function PlusIcon(props: React.SVGProps<SVGSVGElement>) {
     <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M5 12h14" />
       <path d="M12 5v14" />
+    </svg>
+  );
+}
+
+function WhatsAppIcon({ className = "w-5 h-5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414-.074-.124-.272-.198-.57-.347z"/>
+      <path d="M12 0C5.373 0 0 5.373 0 12c0 2.119.554 4.108 1.523 5.833L0 24l6.342-1.498A11.95 11.95 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.848 0-3.585-.49-5.091-1.344l-.365-.207-3.774.891.916-3.684-.235-.383A9.958 9.958 0 0 1 2 12c0-5.514 4.486-10 10-10s10 4.486 10 10-4.486 10-10 10z"/>
     </svg>
   );
 }

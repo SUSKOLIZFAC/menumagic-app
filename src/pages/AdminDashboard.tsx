@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { db, handleFirestoreError, OperationType, sanitizeForFirestore } from '../firebase';
 import { collection, query, where, getDocs, addDoc, doc, getDoc, setDoc, deleteDoc, orderBy, serverTimestamp } from 'firebase/firestore';
 import { ImageDisplay } from '../components/ImageDisplay';
-import { digitizeMenuImage } from '../services/geminiService';
+import { digitizeMenuImage, semanticMatchMenuWithLibrary, generateFoodMetadata, searchWebFoodImage, searchWebPhotosForEntireMenu, LibraryPhotoEntry, MenuItemToMatch } from '../services/geminiService';
 import { QRCodeSVG } from 'qrcode.react';
-import { Plus, Upload, QrCode, LogOut, Loader2, Edit2, X, Utensils, Image as ImageIcon, ChevronRight, Store, ExternalLink, Trash2, Search, Users, Mail, Phone, Menu as MenuIcon } from 'lucide-react';
+import { Plus, Upload, QrCode, LogOut, Loader2, Edit2, X, Utensils, Image as ImageIcon, ChevronRight, Store, ExternalLink, Trash2, Search, Users, Mail, Phone, Menu as MenuIcon, Sparkles, Tag, Check, RefreshCw, AlertCircle, Wand2, Filter } from 'lucide-react';
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
@@ -24,6 +24,17 @@ export default function AdminDashboard() {
   const [editingRestaurant, setEditingRestaurant] = useState<any | null>(null);
   const [autoFilledCount, setAutoFilledCount] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<'restaurants' | 'leads' | 'library'>('restaurants');
+
+  // AI Automation States
+  const [automationStep, setAutomationStep] = useState<string | null>(null);
+  const [automationSummary, setAutomationSummary] = useState<{
+    totalItems: number;
+    matchedItems: number;
+    neededPhotos: number;
+    categoriesExtracted: number;
+  } | null>(null);
+  const [libraryPickerTarget, setLibraryPickerTarget] = useState<{ catIdx: number; itemIdx: number; itemName: string } | null>(null);
+  const [libraryPickerSearch, setLibraryPickerSearch] = useState('');
 
   // Master Cloud Image Library States
   const [syncingLibrary, setSyncingLibrary] = useState(false);
@@ -144,124 +155,349 @@ export default function AdminDashboard() {
 
   const autoFillItemImages = async (categories: any[]): Promise<{ updatedCategories: any[], count: number }> => {
     try {
+      const fullLibrary: LibraryPhotoEntry[] = [];
       const libraryList: { name: string, imageUrl: string }[] = [];
+      const categoryLibraryList: { name: string, imageUrl: string }[] = [];
 
-      // 1. Fetch from Master Shared Library first
-      const librarySnapshot = await getDocs(collection(db, 'item_library'));
-      librarySnapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data && data.name && data.imageUrl) {
-          libraryList.push({ name: data.name, imageUrl: data.imageUrl });
-        }
+      // 1. Fetch from Master Shared Library first (Items)
+      try {
+        const librarySnapshot = await getDocs(collection(db, 'item_library'));
+        librarySnapshot.forEach((doc) => {
+          const data = doc.data();
+          if (data && data.name && data.imageUrl) {
+            fullLibrary.push({
+              id: doc.id,
+              name: data.name,
+              imageUrl: data.imageUrl,
+              category: data.category || '',
+              tags: Array.isArray(data.tags) ? data.tags : [],
+              restaurant: data.restaurant || ''
+            });
+            libraryList.push({ name: data.name, imageUrl: data.imageUrl });
+          }
+        });
+      } catch (err) {
+        console.warn("Could not read item_library collection (quota limit or offline):", err);
+      }
+
+      // 2. Fetch Category Library
+      try {
+        const catLibrarySnapshot = await getDocs(collection(db, 'category_library'));
+        catLibrarySnapshot.forEach((doc) => {
+          const data = doc.data();
+          if (data && data.name && data.imageUrl) {
+            categoryLibraryList.push({ name: data.name, imageUrl: data.imageUrl });
+          }
+        });
+      } catch (err) {
+        console.warn("Could not read category_library collection (quota limit or offline):", err);
+      }
+
+      // 3. Fetch from existing menus as a fallback
+      try {
+        const q = query(collection(db, 'menus'));
+        const menusSnapshot = await getDocs(q);
+        menusSnapshot.forEach((doc) => {
+          const data = doc.data();
+          if (data && Array.isArray(data.categories)) {
+            data.categories.forEach((category: any) => {
+              if (category && category.name && category.imageUrl) {
+                const exists = categoryLibraryList.some(libCat => libCat.name.toLowerCase().trim() === category.name.toLowerCase().trim());
+                if (!exists) {
+                  categoryLibraryList.push({ name: category.name, imageUrl: category.imageUrl });
+                }
+              }
+
+              if (Array.isArray(category.items)) {
+                category.items.forEach((item: any) => {
+                  if (item && item.name && item.imageUrl) {
+                    const existsInFull = fullLibrary.some(f => f.name.toLowerCase().trim() === item.name.toLowerCase().trim());
+                    if (!existsInFull) {
+                      const normId = item.name.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+                      fullLibrary.push({
+                        id: normId || `menu_item_${Math.random()}`,
+                        name: item.name,
+                        imageUrl: item.imageUrl,
+                        category: category.name || '',
+                        tags: [category.name || '', item.name].filter(Boolean)
+                      });
+                    }
+                    const exists = libraryList.some(libItem => libItem.name.toLowerCase().trim() === item.name.toLowerCase().trim());
+                    if (!exists) {
+                      libraryList.push({ name: item.name, imageUrl: item.imageUrl });
+                    }
+                  }
+                });
+              }
+            });
+          }
+        });
+      } catch (err) {
+        console.warn("Could not read menus collection for fallback (quota limit or offline):", err);
+      }
+
+      // Collect items missing images for AI Semantic Matching
+      const itemsToMatch: MenuItemToMatch[] = [];
+      categories.forEach((cat: any) => {
+        (cat.items || []).forEach((item: any) => {
+          if (!item.imageUrl && item.name) {
+            itemsToMatch.push({
+              name: item.name,
+              description: item.description || '',
+              categoryName: cat.name || ''
+            });
+          }
+        });
       });
 
-      // 2. Fetch from existing menus as a fallback
-      const q = query(collection(db, 'menus'));
-      const menusSnapshot = await getDocs(q);
-      menusSnapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data && Array.isArray(data.categories)) {
-          data.categories.forEach((category: any) => {
-            if (Array.isArray(category.items)) {
-              category.items.forEach((item: any) => {
-                if (item && item.name && item.imageUrl) {
-                  // Only add if not already in libraryList (avoid duplicates)
-                  const exists = libraryList.some(libItem => libItem.name.toLowerCase().trim() === item.name.toLowerCase().trim());
-                  if (!exists) {
-                    libraryList.push({ name: item.name, imageUrl: item.imageUrl });
-                  }
-                }
+      // AI Semantic Matching via Gemini
+      const aiMatchMap = new Map<string, { imageUrl: string; confidence: number; matchReason?: string }>();
+      if (itemsToMatch.length > 0 && fullLibrary.length > 0) {
+        try {
+          const aiResults = await semanticMatchMenuWithLibrary(itemsToMatch, fullLibrary);
+          aiResults.forEach(res => {
+            if (res.matchedImageUrl) {
+              aiMatchMap.set(res.itemName.toLowerCase().trim(), {
+                imageUrl: res.matchedImageUrl,
+                confidence: res.confidence,
+                matchReason: res.matchReason
               });
             }
           });
+        } catch (err) {
+          console.warn("AI Semantic match warning, falling back to local fuzzy match:", err);
         }
-      });
+      }
 
       let matchCount = 0;
       const updatedCategories = categories.map((category: any) => {
+        let updatedCategoryImg = category.imageUrl;
+        if (!updatedCategoryImg && category.name) {
+          const matchedCatImg = findBestMatch(category.name, categoryLibraryList);
+          if (matchedCatImg) {
+            updatedCategoryImg = matchedCatImg;
+            matchCount++;
+          }
+        }
+
         const updatedItems = (category.items || []).map((item: any) => {
           if (!item.imageUrl && item.name) {
+            const key = item.name.toLowerCase().trim();
+            const aiMatch = aiMatchMap.get(key);
+            
+            if (aiMatch) {
+              matchCount++;
+              return {
+                ...item,
+                imageUrl: aiMatch.imageUrl || null,
+                isAiMatched: true,
+                matchConfidence: aiMatch.confidence ?? 0,
+                matchReason: aiMatch.matchReason || ''
+              };
+            }
+
+            // Fallback to fuzzy search
             const matchedImage = findBestMatch(item.name, libraryList);
             if (matchedImage) {
               matchCount++;
               return {
                 ...item,
-                imageUrl: matchedImage
+                imageUrl: matchedImage || null,
+                isAiMatched: false
               };
             }
           }
-          return item;
+          return {
+            ...item,
+            imageUrl: item.imageUrl || null
+          };
         });
+
         return {
           ...category,
+          imageUrl: updatedCategoryImg || null,
           items: updatedItems
         };
       });
 
       return { updatedCategories, count: matchCount };
     } catch (error) {
-      console.error("Error auto-filling item images from cloud:", error);
+      console.error("Error auto-filling item and category images from cloud:", error);
       return { updatedCategories: categories, count: 0 };
     }
   };
 
-  const syncItemToLibrary = async (name: string, imageUrl: string) => {
+  const syncItemToLibrary = async (
+    name: string, 
+    imageUrl: string, 
+    categoryName?: string, 
+    restaurantName?: string,
+    existingTags?: string[]
+  ) => {
     if (!name || !imageUrl) return;
     const normalizedId = name.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
     if (!normalizedId) return;
     try {
-      await setDoc(doc(db, 'item_library', normalizedId), {
+      let tags = existingTags && existingTags.length > 0 ? existingTags : [];
+      if (tags.length === 0) {
+        tags = await generateFoodMetadata(name, categoryName);
+      }
+      await setDoc(doc(db, 'item_library', normalizedId), sanitizeForFirestore({
+        name: name.trim(),
+        imageUrl: imageUrl,
+        category: categoryName || '',
+        restaurant: restaurantName || selectedRestaurant?.name || '',
+        tags: tags,
+        updatedAt: new Date().toISOString()
+      }), { merge: true });
+    } catch (error) {
+      console.warn("Error syncing item to library:", error);
+    }
+  };
+
+  const syncCategoryToLibrary = async (name: string, imageUrl: string) => {
+    if (!name || !imageUrl) return;
+    const normalizedId = name.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+    if (!normalizedId) return;
+    try {
+      await setDoc(doc(db, 'category_library', normalizedId), {
         name: name.trim(),
         imageUrl: imageUrl,
         updatedAt: new Date().toISOString()
       });
     } catch (error) {
-      console.error("Error syncing item to library:", error);
+      console.error("Error syncing category to library:", error);
     }
   };
 
   const loadLibraryItems = async () => {
     try {
-      const snapshot = await getDocs(collection(db, 'item_library'));
-      const items: any[] = [];
-      snapshot.forEach((doc) => {
-        items.push({ id: doc.id, ...doc.data() });
-      });
-      setLibraryItems(items);
+      const itemsMap = new Map<string, any>();
+
+      // Read item_library
+      try {
+        const snapshot = await getDocs(collection(db, 'item_library'));
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data && data.name && data.imageUrl) {
+            itemsMap.set(docSnap.id, { id: docSnap.id, ...data });
+          }
+        });
+      } catch (err) {
+        console.warn("Notice loading item_library (quota or offline):", err);
+      }
+
+      // Read menus
+      try {
+        const menusSnapshot = await getDocs(collection(db, 'menus'));
+        for (const menuDoc of menusSnapshot.docs) {
+          const menuData = menuDoc.data();
+          if (menuData && Array.isArray(menuData.categories)) {
+            for (const category of menuData.categories) {
+              if (Array.isArray(category.items)) {
+                for (const item of category.items) {
+                  if (item && item.name && item.imageUrl) {
+                    const normalizedId = item.name.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+                    if (normalizedId && !itemsMap.has(normalizedId)) {
+                      const newItem = {
+                        id: normalizedId,
+                        name: item.name.trim(),
+                        imageUrl: item.imageUrl,
+                        category: category.name || '',
+                        tags: [category.name || '', item.name].filter(Boolean),
+                        updatedAt: new Date().toISOString()
+                      };
+                      itemsMap.set(normalizedId, newItem);
+
+                      setDoc(doc(db, 'item_library', normalizedId), sanitizeForFirestore(newItem), { merge: true })
+                        .catch(err => console.warn("Background item_library sync note:", err));
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Notice scanning menus for library photos (quota or offline):", err);
+      }
+
+      const itemsList = Array.from(itemsMap.values());
+      if (itemsList.length > 0) {
+        try {
+          localStorage.setItem('cached_library_items', JSON.stringify(itemsList));
+        } catch (_) {}
+        setLibraryItems(itemsList);
+      } else {
+        try {
+          const cached = localStorage.getItem('cached_library_items');
+          if (cached) {
+            setLibraryItems(JSON.parse(cached));
+          }
+        } catch (_) {}
+      }
     } catch (error) {
-      console.error("Error loading library items:", error);
+      console.warn("Error in loadLibraryItems:", error);
     }
   };
 
   const autoSyncExistingMenusToLibrary = async () => {
     try {
-      // Fetch all existing library items to know what is already saved
-      const librarySnapshot = await getDocs(collection(db, 'item_library'));
-      const existingInLibrary = new Set<string>();
-      librarySnapshot.forEach((doc) => {
-        existingInLibrary.add(doc.id);
+      const categoryLibSnapshot = await getDocs(collection(db, 'category_library'));
+      const existingCatsInLib = new Set<string>();
+      categoryLibSnapshot.forEach((docSnap) => {
+        existingCatsInLib.add(docSnap.id);
       });
 
-      // Fetch all menus from all restaurants
+      const librarySnapshot = await getDocs(collection(db, 'item_library'));
+      const existingInLibrary = new Set<string>();
+      librarySnapshot.forEach((docSnap) => {
+        existingInLibrary.add(docSnap.id);
+      });
+
       const menusSnapshot = await getDocs(collection(db, 'menus'));
-      let syncCount = 0;
+      let itemSyncCount = 0;
+      let catSyncCount = 0;
       
       for (const menuDoc of menusSnapshot.docs) {
         const menuData = menuDoc.data();
         if (menuData && Array.isArray(menuData.categories)) {
           for (const category of menuData.categories) {
+            if (category && category.name && category.imageUrl) {
+              const normalizedCatId = category.name.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+              if (normalizedCatId && !existingCatsInLib.has(normalizedCatId)) {
+                try {
+                  await setDoc(doc(db, 'category_library', normalizedCatId), sanitizeForFirestore({
+                    name: category.name.trim(),
+                    imageUrl: category.imageUrl,
+                    updatedAt: new Date().toISOString()
+                  }), { merge: true });
+                  existingCatsInLib.add(normalizedCatId);
+                  catSyncCount++;
+                } catch (writeErr) {
+                  console.warn(`Could not auto-sync category ${category.name}:`, writeErr);
+                }
+              }
+            }
+
             if (Array.isArray(category.items)) {
               for (const item of category.items) {
                 if (item && item.name && item.imageUrl) {
                   const normalizedId = item.name.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
                   if (normalizedId && !existingInLibrary.has(normalizedId)) {
-                    await setDoc(doc(db, 'item_library', normalizedId), {
-                      name: item.name.trim(),
-                      imageUrl: item.imageUrl,
-                      updatedAt: new Date().toISOString()
-                    });
-                    existingInLibrary.add(normalizedId);
-                    syncCount++;
+                    try {
+                      await setDoc(doc(db, 'item_library', normalizedId), sanitizeForFirestore({
+                        name: item.name.trim(),
+                        imageUrl: item.imageUrl,
+                        category: category.name || '',
+                        tags: [category.name || '', item.name].filter(Boolean),
+                        updatedAt: new Date().toISOString()
+                      }), { merge: true });
+                      existingInLibrary.add(normalizedId);
+                      itemSyncCount++;
+                    } catch (writeErr) {
+                      console.warn(`Could not auto-sync item ${item.name}:`, writeErr);
+                    }
                   }
                 }
               }
@@ -270,12 +506,12 @@ export default function AdminDashboard() {
         }
       }
       
-      if (syncCount > 0) {
-        console.log(`Auto-synced ${syncCount} food item images to the global library.`);
+      if (itemSyncCount > 0 || catSyncCount > 0) {
+        console.log(`Auto-synced ${catSyncCount} categories and ${itemSyncCount} food item images to libraries.`);
         await loadLibraryItems();
       }
     } catch (error) {
-      console.error("Error auto-syncing existing menus to library:", error);
+      console.warn("Error auto-syncing existing menus to library:", error);
     }
   };
 
@@ -283,23 +519,38 @@ export default function AdminDashboard() {
     try {
       setSyncingLibrary(true);
       const menusSnapshot = await getDocs(collection(db, 'menus'));
-      let syncCount = 0;
+      let itemSyncCount = 0;
+      let catSyncCount = 0;
       
       for (const menuDoc of menusSnapshot.docs) {
         const menuData = menuDoc.data();
         if (menuData && Array.isArray(menuData.categories)) {
           for (const category of menuData.categories) {
+            if (category && category.name && category.imageUrl) {
+              const normalizedCatId = category.name.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+              if (normalizedCatId) {
+                await setDoc(doc(db, 'category_library', normalizedCatId), sanitizeForFirestore({
+                  name: category.name.trim(),
+                  imageUrl: category.imageUrl,
+                  updatedAt: new Date().toISOString()
+                }), { merge: true });
+                catSyncCount++;
+              }
+            }
+
             if (Array.isArray(category.items)) {
               for (const item of category.items) {
                 if (item && item.name && item.imageUrl) {
                   const normalizedId = item.name.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
                   if (normalizedId) {
-                    await setDoc(doc(db, 'item_library', normalizedId), {
+                    await setDoc(doc(db, 'item_library', normalizedId), sanitizeForFirestore({
                       name: item.name.trim(),
                       imageUrl: item.imageUrl,
+                      category: category.name || '',
+                      tags: [category.name || '', item.name].filter(Boolean),
                       updatedAt: new Date().toISOString()
-                    });
-                    syncCount++;
+                    }), { merge: true });
+                    itemSyncCount++;
                   }
                 }
               }
@@ -309,7 +560,7 @@ export default function AdminDashboard() {
       }
       
       await loadLibraryItems();
-      alert(`Successfully scanned all menus and synced ${syncCount} unique item images to your Shared Cloud Library!`);
+      alert(`Successfully scanned all previous menus and imported ${itemSyncCount} food photos into your Cloud Photo Library!`);
     } catch (error) {
       console.error("Error syncing menus to library:", error);
       alert("Failed to scan and sync menu images.");
@@ -406,17 +657,34 @@ export default function AdminDashboard() {
     try {
       setSyncingMenuImages(true);
       const { updatedCategories, count } = await autoFillItemImages(menu.categories || []);
+      
+      // Save all photos present in updatedCategories to Shared Cloud Library for future menus
+      for (const cat of updatedCategories) {
+        if (cat.name && cat.imageUrl) {
+          await syncCategoryToLibrary(cat.name, cat.imageUrl);
+        }
+        if (Array.isArray(cat.items)) {
+          for (const item of cat.items) {
+            if (item.name && item.imageUrl) {
+              await syncItemToLibrary(item.name, item.imageUrl, cat.name, selectedRestaurant.name);
+            }
+          }
+        }
+      }
+
+      const newMenu = sanitizeForFirestore({
+        ...menu,
+        categories: updatedCategories,
+        updatedAt: new Date().toISOString()
+      });
+      await setDoc(doc(db, 'menus', selectedRestaurant.id), newMenu);
+      setMenu(newMenu);
+      await loadLibraryItems();
+
       if (count > 0) {
-        const newMenu = {
-          ...menu,
-          categories: updatedCategories,
-          updatedAt: new Date().toISOString()
-        };
-        await setDoc(doc(db, 'menus', selectedRestaurant.id), newMenu);
-        setMenu(newMenu);
         alert(`Awesome! Successfully matched and applied ${count} images from your Shared Cloud Library to this menu!`);
       } else {
-        alert("No additional matches were found in your shared library for the missing item images.");
+        alert("Menu synced with your Shared Cloud Photo Library! Any new dish photos are now saved for future menus.");
       }
     } catch (error) {
       console.error("Error manually auto-filling menu images:", error);
@@ -447,8 +715,9 @@ export default function AdminDashboard() {
     newMenu.categories[editingItem.catIdx].items[editingItem.itemIdx] = itemData;
     
     try {
-      await setDoc(doc(db, 'menus', selectedRestaurant.id), newMenu);
-      setMenu(newMenu);
+      const sanitizedMenu = sanitizeForFirestore(newMenu);
+      await setDoc(doc(db, 'menus', selectedRestaurant.id), sanitizedMenu);
+      setMenu(sanitizedMenu);
       setEditingItem(null);
     } catch (error) {
       console.error("Error updating menu", error);
@@ -497,8 +766,15 @@ export default function AdminDashboard() {
           
           const newMenu = { ...menu };
           newMenu.categories[catIdx].imageUrl = imageRef.id;
-          await setDoc(doc(db, 'menus', selectedRestaurant.id), newMenu);
-          setMenu(newMenu);
+
+          const catName = newMenu.categories[catIdx].name;
+          if (catName) {
+            await syncCategoryToLibrary(catName, imageRef.id);
+          }
+
+          const sanitizedMenu = sanitizeForFirestore(newMenu);
+          await setDoc(doc(db, 'menus', selectedRestaurant.id), sanitizedMenu);
+          setMenu(sanitizedMenu);
         } catch (error) {
           console.error("Error updating category image", error);
           alert("Failed to update category image.");
@@ -519,8 +795,9 @@ export default function AdminDashboard() {
     delete newMenu.categories[catIdx].imageUrl;
     
     try {
-      await setDoc(doc(db, 'menus', selectedRestaurant.id), newMenu);
-      setMenu(newMenu);
+      const sanitizedMenu = sanitizeForFirestore(newMenu);
+      await setDoc(doc(db, 'menus', selectedRestaurant.id), sanitizedMenu);
+      setMenu(sanitizedMenu);
     } catch (error) {
       console.error("Error removing category image", error);
       alert("Failed to remove category image.");
@@ -534,11 +811,10 @@ export default function AdminDashboard() {
     const newMenu = { ...menu };
     newMenu.categories[catIdx].items.splice(itemIdx, 1);
     
-    // If category is empty, maybe remove it? Let's keep it simple for now.
-    
     try {
-      await setDoc(doc(db, 'menus', selectedRestaurant.id), newMenu);
-      setMenu(newMenu);
+      const sanitizedMenu = sanitizeForFirestore(newMenu);
+      await setDoc(doc(db, 'menus', selectedRestaurant.id), sanitizedMenu);
+      setMenu(sanitizedMenu);
     } catch (error) {
       console.error("Error deleting item", error);
       alert("Failed to delete item.");
@@ -581,32 +857,31 @@ export default function AdminDashboard() {
     }
   };
 
-  const [componentError, setComponentError] = useState<Error | null>(null);
-
-  useEffect(() => {
-    if (componentError) {
-      throw componentError;
-    }
-  }, [componentError]);
+  const [firestoreNotice, setFirestoreNotice] = useState<string | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
-      if (user) {
+      if (user && user.email) {
+        const allowedAdminEmails = ['ahmedbahloul230@gmail.com', 'ali@onemenu.app'];
+        if (!allowedAdminEmails.includes(user.email.toLowerCase())) {
+          return;
+        }
         try {
           await fetchRestaurants();
         } catch (error: any) {
-          setComponentError(error);
+          console.warn("Notice loading restaurants:", error);
+          setFirestoreNotice("Firestore database read quota reached for today. Showing cached data.");
         }
         try {
           await fetchLeads();
         } catch (error: any) {
-          setComponentError(error);
+          console.warn("Notice loading leads:", error);
         }
         try {
           await loadLibraryItems();
           await autoSyncExistingMenusToLibrary();
         } catch (error: any) {
-          console.error("Error fetching library items on load:", error);
+          console.warn("Error fetching library items on load:", error);
         }
       }
     };
@@ -638,8 +913,13 @@ export default function AdminDashboard() {
       const querySnapshot = await getDocs(q);
       const fetchedLeads = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setLeads(fetchedLeads);
+      try { localStorage.setItem('cached_leads', JSON.stringify(fetchedLeads)); } catch (_) {}
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'leads');
+      try {
+        const cached = localStorage.getItem('cached_leads');
+        if (cached) setLeads(JSON.parse(cached));
+      } catch (_) {}
     }
   };
 
@@ -650,11 +930,23 @@ export default function AdminDashboard() {
       const querySnapshot = await getDocs(q);
       const rests = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setRestaurants(rests);
+      try { localStorage.setItem('cached_restaurants', JSON.stringify(rests)); } catch (_) {}
       if (rests.length > 0 && !selectedRestaurant) {
         await handleSelectRestaurant(rests[0]);
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'restaurants');
+      setFirestoreNotice("Firestore database read quota reached for today. Displaying cached dashboard data.");
+      try {
+        const cached = localStorage.getItem('cached_restaurants');
+        if (cached) {
+          const rests = JSON.parse(cached);
+          setRestaurants(rests);
+          if (rests.length > 0 && !selectedRestaurant) {
+            await handleSelectRestaurant(rests[0]);
+          }
+        }
+      } catch (_) {}
     } finally {
       setLoading(false);
     }
@@ -693,12 +985,20 @@ export default function AdminDashboard() {
       setLoading(true);
       const menuDoc = await getDoc(doc(db, 'menus', restaurant.id));
       if (menuDoc.exists()) {
-        setMenu({ id: menuDoc.id, ...menuDoc.data() });
+        const menuData = { id: menuDoc.id, ...menuDoc.data() };
+        setMenu(menuData);
+        try { localStorage.setItem(`cached_menu_${restaurant.id}`, JSON.stringify(menuData)); } catch (_) {}
       } else {
         setMenu(null);
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.GET, `menus/${restaurant.id}`);
+      try {
+        const cached = localStorage.getItem(`cached_menu_${restaurant.id}`);
+        if (cached) {
+          setMenu(JSON.parse(cached));
+        }
+      } catch (_) {}
     } finally {
       setLoading(false);
     }
@@ -710,6 +1010,8 @@ export default function AdminDashboard() {
 
     try {
       setUploading(true);
+      setAutomationSummary(null);
+      setAutomationStep("📄 Step 1/3: Reading menu image & extracting items with Gemini AI...");
       
       const imagePromises = Array.from(files).map((file: File) => {
         return new Promise<{base64Image: string, mimeType: string}>((resolve, reject) => {
@@ -727,29 +1029,184 @@ export default function AdminDashboard() {
 
       const images = await Promise.all(imagePromises);
       
-      // Call Gemini
+      // Step 1: Call Gemini Vision to digitize menu items, categories, descriptions, prices
       const digitizedMenu = await digitizeMenuImage(images);
       
-      // Auto-fill repeating images
+      // Step 2: AI Semantic Photo Matching against shared library & existing menus
+      setAutomationStep("🧠 Step 2/3: AI Semantic Photo Matching against your Shared Cloud Photo Library...");
       const { updatedCategories, count } = await autoFillItemImages(digitizedMenu.categories || []);
-      if (count > 0) {
-        setAutoFilledCount(count);
-      }
       
-      // Save to Firestore
-      const menuData = {
+      // Step 3: Save menu & sync all item/category photos to Shared Cloud Library for future menus
+      setAutomationStep("⚡ Step 3/3: Saving menu & saving all new dish photos to library for future menus...");
+      let totalItemsCount = 0;
+      let itemsWithPhotoCount = 0;
+
+      for (const cat of updatedCategories) {
+        if (cat.name && cat.imageUrl) {
+          await syncCategoryToLibrary(cat.name, cat.imageUrl);
+        }
+        if (Array.isArray(cat.items)) {
+          for (const item of cat.items) {
+            totalItemsCount++;
+            if (item.imageUrl) {
+              itemsWithPhotoCount++;
+              await syncItemToLibrary(item.name, item.imageUrl, cat.name, selectedRestaurant.name);
+            }
+          }
+        }
+      }
+
+      const menuData = sanitizeForFirestore({
         restaurantId: selectedRestaurant.id,
         categories: updatedCategories,
         updatedAt: new Date().toISOString()
-      };
+      });
       
       await setDoc(doc(db, 'menus', selectedRestaurant.id), menuData);
       setMenu({ id: selectedRestaurant.id, ...menuData });
+
+      setAutomationSummary({
+        totalItems: totalItemsCount,
+        matchedItems: count,
+        neededPhotos: totalItemsCount - itemsWithPhotoCount,
+        categoriesExtracted: updatedCategories.length
+      });
+
+      await loadLibraryItems();
+
     } catch (error) {
       console.error("Error processing menu:", error);
       alert("Failed to digitize menu. Please try again.");
     } finally {
       setUploading(false);
+      setAutomationStep(null);
+    }
+  };
+
+  const handleTriggerWebImageSearch = async () => {
+    if (!menu || !selectedRestaurant || !menu.categories) return;
+
+    try {
+      setSyncingMenuImages(true);
+      setAutomationSummary(null);
+      setAutomationStep("🌐 Searching the web for fresh food photography for all menu items...");
+
+      const webSearchResult = await searchWebPhotosForEntireMenu(
+        menu.categories,
+        (processed, total, currentItem) => {
+          setAutomationStep(`🌐 Web searching dish ${processed}/${total}: "${currentItem}"...`);
+        }
+      );
+
+      const newMenu = sanitizeForFirestore({
+        ...menu,
+        categories: webSearchResult.updatedCategories,
+        updatedAt: new Date().toISOString()
+      });
+
+      await setDoc(doc(db, 'menus', selectedRestaurant.id), newMenu);
+      setMenu(newMenu);
+
+      setAutomationSummary({
+        totalItems: webSearchResult.totalSearched,
+        matchedItems: webSearchResult.successCount,
+        neededPhotos: webSearchResult.totalSearched - webSearchResult.successCount,
+        categoriesExtracted: menu.categories.length
+      });
+
+      alert(`Success! Automatically found fresh web food photos for ${webSearchResult.successCount} items!`);
+    } catch (error) {
+      console.error("Error web searching food images:", error);
+      alert("Failed to search web images for menu items.");
+    } finally {
+      setSyncingMenuImages(false);
+      setAutomationStep(null);
+    }
+  };
+
+  const handleSingleItemWebSearch = async (catIdx: number, itemIdx: number, itemName: string) => {
+    if (!menu || !selectedRestaurant) return;
+    try {
+      setAutomationStep(`🌐 Searching web for fresh photo of "${itemName}"...`);
+      const categoryName = menu.categories[catIdx]?.name || '';
+      const description = menu.categories[catIdx]?.items?.[itemIdx]?.description || '';
+      const res = await searchWebFoodImage(itemName, categoryName, description);
+      
+      if (res && res.imageUrl) {
+        const newMenu = { ...menu };
+        newMenu.categories[catIdx].items[itemIdx].imageUrl = res.imageUrl;
+        newMenu.categories[catIdx].items[itemIdx].isWebSearched = true;
+        newMenu.categories[catIdx].items[itemIdx].webSearchSource = res.source;
+
+        const sanitizedMenu = sanitizeForFirestore(newMenu);
+        await setDoc(doc(db, 'menus', selectedRestaurant.id), sanitizedMenu);
+        setMenu(sanitizedMenu);
+      } else {
+        alert(`Could not find a web photo for "${itemName}".`);
+      }
+    } catch (err) {
+      console.error(`Error searching web photo for ${itemName}:`, err);
+      alert(`Failed to search web photo for "${itemName}".`);
+    } finally {
+      setAutomationStep(null);
+    }
+  };
+
+  const handleAssignPhotoFromLibrary = async (libraryItem: any) => {
+    if (!libraryPickerTarget || !menu || !selectedRestaurant) return;
+    const { catIdx, itemIdx } = libraryPickerTarget;
+
+    const newMenu = { ...menu };
+    const currentItem = newMenu.categories[catIdx].items[itemIdx];
+    currentItem.imageUrl = libraryItem.imageUrl;
+    currentItem.isAiMatched = false;
+
+    try {
+      setLoading(true);
+      const sanitizedMenu = sanitizeForFirestore(newMenu);
+      await setDoc(doc(db, 'menus', selectedRestaurant.id), sanitizedMenu);
+      setMenu(sanitizedMenu);
+      
+      // Update item library with this match
+      await syncItemToLibrary(
+        currentItem.name, 
+        libraryItem.imageUrl, 
+        newMenu.categories[catIdx].name, 
+        selectedRestaurant.name, 
+        libraryItem.tags
+      );
+      
+      setLibraryPickerTarget(null);
+    } catch (error) {
+      console.error("Error assigning photo from library:", error);
+      alert("Failed to assign photo from library.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAutoTagLibraryItems = async () => {
+    try {
+      setSyncingLibrary(true);
+      let taggedCount = 0;
+      for (const item of libraryItems) {
+        if (!item.tags || item.tags.length === 0) {
+          const tags = await generateFoodMetadata(item.name, item.category);
+          if (tags.length > 0) {
+            await setDoc(doc(db, 'item_library', item.id), {
+              tags: tags
+            }, { merge: true });
+            taggedCount++;
+          }
+        }
+      }
+      await loadLibraryItems();
+      alert(`AI successfully generated metadata tags for ${taggedCount} food items in your library!`);
+    } catch (error) {
+      console.error("Error auto-tagging library items:", error);
+      alert("Failed to auto-tag library items.");
+    } finally {
+      setSyncingLibrary(false);
     }
   };
 
@@ -848,7 +1305,7 @@ export default function AdminDashboard() {
                 {restaurants.map(rest => (
                   <button
                     key={rest.id}
-                    onClick={() => { handleSelectRestaurant(rest).catch(setComponentError); setIsMobileMenuOpen(false); }}
+                    onClick={() => { handleSelectRestaurant(rest); setIsMobileMenuOpen(false); }}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
                       selectedRestaurant?.id === rest.id 
                         ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' 
@@ -861,7 +1318,7 @@ export default function AdminDashboard() {
                 ))}
               </div>
 
-              <form onSubmit={(e) => handleCreateRestaurant(e).catch(setComponentError)} className="mt-8">
+              <form onSubmit={(e) => { e.preventDefault(); handleCreateRestaurant(e); }} className="mt-8">
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Add New Location</label>
                 <div className="flex items-center gap-2">
                   <input
@@ -914,6 +1371,17 @@ export default function AdminDashboard() {
         </div>
 
         <div className="p-8 md:p-12 relative z-10">
+          {firestoreNotice && (
+            <div className="mb-8 p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl flex items-center justify-between shadow-sm">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+                <span className="text-sm font-medium">{firestoreNotice}</span>
+              </div>
+              <button onClick={() => setFirestoreNotice(null)} className="text-amber-600 hover:text-amber-900 p-1">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
           {viewMode === 'leads' ? (
             <div className="max-w-6xl mx-auto">
               <div className="mb-12">
@@ -1093,34 +1561,73 @@ export default function AdminDashboard() {
               {/* Library Grid & Search */}
               <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-                  <h3 className="font-bold text-slate-900 text-xl">Cloud Library Items</h3>
-                  <div className="relative w-full md:w-80">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                    <input
-                      type="text"
-                      placeholder="Search shared library..."
-                      value={librarySearchQuery}
-                      onChange={(e) => setLibrarySearchQuery(e.target.value)}
-                      className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all placeholder:text-slate-400"
-                    />
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-xl">Cloud Photo Library</h3>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">Shared photo library used by AI for semantic matching</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                    <button
+                      onClick={handleSyncAllImages}
+                      disabled={syncingLibrary}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-all shadow-sm disabled:opacity-50"
+                      title="Scans all existing menus in database and saves all dish photos to library"
+                    >
+                      {syncingLibrary ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                      Import All Menu Photos
+                    </button>
+                    <button
+                      onClick={handleAutoTagLibraryItems}
+                      disabled={syncingLibrary}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-all shadow-sm disabled:opacity-50"
+                      title="Generates AI food tags for semantic matching"
+                    >
+                      {syncingLibrary ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-indigo-600" />}
+                      AI Auto-Tag Library
+                    </button>
+                    <div className="relative w-full md:w-72">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                      <input
+                        type="text"
+                        placeholder="Search library..."
+                        value={librarySearchQuery}
+                        onChange={(e) => setLibrarySearchQuery(e.target.value)}
+                        className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all placeholder:text-slate-400"
+                      />
+                    </div>
                   </div>
                 </div>
 
                 {libraryItems.length > 0 ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
                     {libraryItems
-                      .filter(item => (item.name || '').toLowerCase().includes(librarySearchQuery.toLowerCase()))
+                      .filter(item => {
+                        const q = librarySearchQuery.toLowerCase().trim();
+                        if (!q) return true;
+                        const nameMatch = (item.name || '').toLowerCase().includes(q);
+                        const catMatch = (item.category || '').toLowerCase().includes(q);
+                        const tagsMatch = Array.isArray(item.tags) && item.tags.some((t: string) => t.toLowerCase().includes(q));
+                        return nameMatch || catMatch || tagsMatch;
+                      })
                       .map(item => (
                         <div key={item.id} className="group relative bg-slate-50 rounded-2xl p-3 border border-slate-100 flex flex-col hover:shadow-md transition-all duration-300 animate-in fade-in zoom-in-95 duration-200">
                           <div className="aspect-square bg-white rounded-xl overflow-hidden mb-3 border border-slate-200/60 relative">
                             <ImageDisplay src={item.imageUrl} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                           </div>
                           <p className="font-bold text-slate-950 text-sm truncate pr-6">{item.name}</p>
-                          <p className="text-[10px] text-slate-400 font-medium mt-1 uppercase tracking-wider">Synced</p>
+                          {item.category && <p className="text-[10px] text-indigo-600 font-semibold mt-0.5">{item.category}</p>}
+                          {Array.isArray(item.tags) && item.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {item.tags.slice(0, 3).map((tag: string, tidx: number) => (
+                                <span key={tidx} className="bg-indigo-50 text-indigo-700 text-[9px] px-1.5 py-0.5 rounded font-medium border border-indigo-100/50">
+                                  #{tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                           
                           <button
                             onClick={() => handleDeleteLibraryItem(item.id)}
-                            className="absolute right-3 bottom-3 p-1.5 bg-white border border-slate-100 hover:border-red-100 text-slate-400 hover:text-red-500 rounded-lg hover:shadow-sm transition-all opacity-0 group-hover:opacity-100"
+                            className="absolute right-3 top-3 p-1.5 bg-white/90 backdrop-blur border border-slate-100 hover:border-red-100 text-slate-400 hover:text-red-500 rounded-lg hover:shadow-sm transition-all opacity-0 group-hover:opacity-100"
                             title="Delete from Library"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -1134,7 +1641,7 @@ export default function AdminDashboard() {
                       <ImageIcon className="w-6 h-6 text-slate-300" />
                     </div>
                     <p className="text-slate-500 font-medium">No items in your shared library yet.</p>
-                    <p className="text-slate-400 text-sm mt-1">Click the sync button above to import photos from your existing menus!</p>
+                    <p className="text-slate-400 text-sm mt-1">Upload a menu image to auto-populate your library!</p>
                   </div>
                 )}
               </div>
@@ -1169,14 +1676,15 @@ export default function AdminDashboard() {
                     <button
                       onClick={handleManualAutoFillMenu}
                       disabled={syncingMenuImages}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-indigo-600 hover:text-indigo-700 rounded-xl text-sm font-bold hover:bg-indigo-50 hover:border-indigo-200 transition-all shadow-sm disabled:opacity-50"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-xl text-sm font-bold hover:from-indigo-700 hover:to-indigo-800 transition-all shadow-md shadow-indigo-200 disabled:opacity-50"
+                      title="Auto-matches dish photos using Gemini AI from your Shared Cloud Photo Library and saves all new photos for future menus"
                     >
                       {syncingMenuImages ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
-                        <ImageIcon className="w-4 h-4 text-indigo-500" />
+                        <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
                       )}
-                      Auto-fill Images
+                      AI Auto-Match Photos
                     </button>
                   )}
                   <a 
@@ -1203,24 +1711,11 @@ export default function AdminDashboard() {
                       className={`inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold cursor-pointer hover:bg-indigo-700 transition-all shadow-md shadow-indigo-200 ${uploading ? 'opacity-70 cursor-not-allowed' : ''}`}
                     >
                       {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                      {uploading ? 'Digitizing AI...' : 'Upload Menu Pages'}
+                      {uploading ? 'AI Processing...' : 'Upload Menu Pages'}
                     </label>
-                    {uploading && (
-                      <div className="absolute top-full left-0 right-0 mt-2">
-                        <div className="h-1.5 w-full bg-indigo-100 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-indigo-600 transition-all duration-500 ease-out"
-                            style={{ width: `${uploadProgress}%` }}
-                          />
-                        </div>
-                        <p className="text-[10px] text-indigo-600 font-bold mt-1 text-center">
-                          {Math.round(uploadProgress)}% - Analyzing
-                        </p>
-                      </div>
-                    )}
                   </div>
                   <button 
-                    onClick={(e) => handleDeleteRestaurant().catch(setComponentError)}
+                    onClick={() => handleDeleteRestaurant()}
                     className="inline-flex items-center gap-2 px-5 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-xl text-sm font-bold hover:bg-red-100 hover:border-red-300 transition-all shadow-sm"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -1228,6 +1723,59 @@ export default function AdminDashboard() {
                   </button>
                 </div>
               </div>
+
+              {/* Active Automation Banner */}
+              {automationStep && (
+                <div className="mb-8 bg-indigo-600 text-white p-5 rounded-3xl shadow-lg border border-indigo-400/30 flex items-center justify-between animate-pulse">
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="w-5 h-5 animate-spin text-indigo-200" />
+                    <span className="font-bold text-sm tracking-wide">{automationStep}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Automation Completion Summary Card */}
+              {automationSummary && (
+                <div className="mb-8 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 rounded-3xl shadow-xl border border-indigo-500/30 animate-in fade-in slide-in-from-top-4 duration-300 relative overflow-hidden">
+                  <button 
+                    onClick={() => setAutomationSummary(null)} 
+                    className="absolute top-4 right-4 p-1.5 text-indigo-300 hover:text-white bg-white/10 rounded-full transition-all"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 bg-indigo-500/20 border border-indigo-400/30 rounded-2xl text-indigo-300">
+                      <Sparkles className="w-6 h-6 text-indigo-300 animate-pulse" />
+                    </div>
+                    <div className="flex-1 pr-6">
+                      <h4 className="font-extrabold text-lg text-white flex items-center gap-2">
+                        AI Menu Automation Completed!
+                      </h4>
+                      <p className="text-indigo-200/90 text-xs font-medium mt-1">
+                        Digitized paper menu, created categories, and matched food photos using Gemini AI semantic intelligence.
+                      </p>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+                        <div className="bg-white/10 backdrop-blur px-3.5 py-2.5 rounded-xl border border-white/10">
+                          <span className="text-[10px] uppercase font-bold text-indigo-300 block">Total Items</span>
+                          <span className="text-lg font-black text-white">{automationSummary.totalItems}</span>
+                        </div>
+                        <div className="bg-emerald-500/20 backdrop-blur px-3.5 py-2.5 rounded-xl border border-emerald-400/30">
+                          <span className="text-[10px] uppercase font-bold text-emerald-300 block">Photos Matched</span>
+                          <span className="text-lg font-black text-emerald-200">{automationSummary.matchedItems}</span>
+                        </div>
+                        <div className="bg-amber-500/20 backdrop-blur px-3.5 py-2.5 rounded-xl border border-amber-400/30">
+                          <span className="text-[10px] uppercase font-bold text-amber-300 block">Photo Needed</span>
+                          <span className="text-lg font-black text-amber-200">{automationSummary.neededPhotos}</span>
+                        </div>
+                        <div className="bg-indigo-500/20 backdrop-blur px-3.5 py-2.5 rounded-xl border border-indigo-400/30">
+                          <span className="text-[10px] uppercase font-bold text-indigo-300 block">Categories</span>
+                          <span className="text-lg font-black text-indigo-200">{automationSummary.categoriesExtracted}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="grid lg:grid-cols-3 gap-8">
                 {/* Menu Management */}
@@ -1239,8 +1787,8 @@ export default function AdminDashboard() {
                           <ImageIcon className="w-5 h-5 text-indigo-600" />
                         </div>
                         <div>
-                          <p className="font-bold text-sm">Cloud Auto-Image Match</p>
-                          <p className="text-xs text-indigo-600/90 font-medium">Successfully matched and applied {autoFilledCount} item {autoFilledCount === 1 ? 'image' : 'images'} from your menu library!</p>
+                          <p className="font-bold text-sm">AI Semantic Photo Match</p>
+                          <p className="text-xs text-indigo-600/90 font-medium">Successfully matched and assigned {autoFilledCount} food {autoFilledCount === 1 ? 'photo' : 'photos'} from your cloud library!</p>
                         </div>
                       </div>
                       <button 
@@ -1299,7 +1847,7 @@ export default function AdminDashboard() {
                                 <div className="w-full h-48 md:h-64 rounded-2xl overflow-hidden mb-8 relative group border border-slate-200 shadow-sm">
                                   <ImageDisplay src={category.imageUrl} alt={category.name} className="w-full h-full object-cover" />
                                   <button 
-                                    onClick={() => handleRemoveCategoryImage(category.originalIdx).catch(setComponentError)}
+                                    onClick={() => handleRemoveCategoryImage(category.originalIdx)}
                                     className="absolute top-4 right-4 p-2.5 bg-white/90 backdrop-blur-sm text-red-600 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity shadow-sm hover:bg-red-50"
                                   >
                                     <Trash2 className="w-5 h-5" />
@@ -1318,24 +1866,72 @@ export default function AdminDashboard() {
                                         <Edit2 className="w-4 h-4" />
                                       </button>
                                       <button 
-                                        onClick={() => handleDeleteItem(category.originalIdx, item.originalIdx).catch(setComponentError)}
+                                        onClick={() => handleDeleteItem(category.originalIdx, item.originalIdx)}
                                         className="p-2.5 bg-white/90 backdrop-blur-sm rounded-xl shadow-sm text-slate-500 hover:text-red-600 transition-colors"
                                       >
                                         <Trash2 className="w-4 h-4" />
                                       </button>
                                     </div>
 
-                                    {item.imageUrl && (
+                                    {item.imageUrl ? (
                                       <div className="w-full h-48 overflow-hidden bg-slate-100 relative">
                                         <ImageDisplay 
                                           src={item.imageUrl} 
                                           alt={item.name} 
                                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                                         />
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-                                        <div className="absolute bottom-4 left-5">
-                                          <span className="font-bold text-white bg-black/30 backdrop-blur-md px-3 py-1.5 rounded-lg text-sm border border-white/20 shadow-sm">{(item.price || 0).toFixed(2)} DH</span>
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                                        
+                                        <div className="absolute top-3 left-3 flex items-center gap-1.5">
+                                          {item.isAiMatched ? (
+                                            <span className="bg-indigo-600/90 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-full border border-indigo-400/30 flex items-center gap-1 shadow-sm" title={item.matchReason || 'Matched using Gemini AI'}>
+                                              <Sparkles className="w-3 h-3 text-amber-300" />
+                                              AI Matched Photo
+                                            </span>
+                                          ) : (
+                                            <span className="bg-emerald-600/90 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-full border border-emerald-400/30 flex items-center gap-1 shadow-sm">
+                                              <Check className="w-3 h-3" />
+                                              Photo Assigned
+                                            </span>
+                                          )}
                                         </div>
+
+                                        <div className="absolute bottom-3 left-3 flex items-center justify-between right-3">
+                                          <span className="font-bold text-white bg-black/40 backdrop-blur-md px-3 py-1 rounded-lg text-sm border border-white/20 shadow-sm">
+                                            {(item.price || 0).toFixed(2)} DH
+                                          </span>
+                                          <div className="flex gap-1.5">
+                                            <button
+                                              onClick={() => handleSingleItemWebSearch(category.originalIdx, item.originalIdx, item.name)}
+                                              className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-2.5 py-1 rounded-lg backdrop-blur shadow-sm transition-all flex items-center gap-1"
+                                              title="Triggers a fresh web search on Google/Unsplash/Wikimedia for this dish"
+                                            >
+                                              <Search className="w-3 h-3 text-amber-300" />
+                                              Web Search
+                                            </button>
+                                            <button
+                                              onClick={() => setLibraryPickerTarget({ catIdx: category.originalIdx, itemIdx: item.originalIdx, itemName: item.name })}
+                                              className="text-xs bg-white/90 hover:bg-white text-slate-800 font-bold px-2.5 py-1 rounded-lg backdrop-blur shadow-sm transition-all flex items-center gap-1"
+                                            >
+                                              <ImageIcon className="w-3 h-3 text-indigo-600" />
+                                              Swap Photo
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                                        <span className="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2.5 py-1 rounded-full border border-amber-200/60 uppercase tracking-wider flex items-center gap-1">
+                                          <AlertCircle className="w-3 h-3 text-amber-600" />
+                                          Photo Needed
+                                        </span>
+                                        <button
+                                          onClick={() => setLibraryPickerTarget({ catIdx: category.originalIdx, itemIdx: item.originalIdx, itemName: item.name })}
+                                          className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-3 py-1.5 rounded-xl border border-indigo-200 transition-all flex items-center gap-1.5 shadow-sm"
+                                        >
+                                          <ImageIcon className="w-3.5 h-3.5 text-indigo-600" />
+                                          Assign Photo
+                                        </button>
                                       </div>
                                     )}
                                     
@@ -1635,7 +2231,7 @@ export default function AdminDashboard() {
                   Cancel
                 </button>
                 <button 
-                  onClick={(e) => handleSaveItem().catch(setComponentError)}
+                  onClick={() => handleSaveItem()}
                   className="flex-[2] bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
                 >
                   Save Changes
@@ -1715,13 +2311,110 @@ export default function AdminDashboard() {
                   Cancel
                 </button>
                 <button 
-                  onClick={(e) => handleSaveRestaurant().catch(setComponentError)}
+                  onClick={() => handleSaveRestaurant()}
                   disabled={loading}
                   className="flex-1 px-4 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-200 disabled:opacity-70"
                 >
                   {loading ? 'Saving...' : 'Save Details'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Select Photo from Cloud Library Modal */}
+      {libraryPickerTarget && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-[2rem] p-8 max-w-2xl w-full max-h-[85vh] flex flex-col relative shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <button 
+              onClick={() => setLibraryPickerTarget(null)} 
+              className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors bg-slate-100 p-2 rounded-full hover:bg-slate-200"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-2">
+              <div className="bg-indigo-100 p-2.5 rounded-xl text-indigo-600">
+                <ImageIcon className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold text-slate-900 tracking-tight">Select Food Photo</h3>
+                <p className="text-sm text-slate-500 font-medium">
+                  Assigning photo for <span className="font-bold text-indigo-600">"{libraryPickerTarget.itemName}"</span>
+                </p>
+              </div>
+            </div>
+
+            {/* Search Input */}
+            <div className="relative my-4">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Search library by food name, category, or tag..."
+                value={libraryPickerSearch}
+                onChange={(e) => setLibraryPickerSearch(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all placeholder:text-slate-400"
+              />
+            </div>
+
+            {/* Grid of Library Photos */}
+            <div className="flex-1 overflow-y-auto pr-1 my-2">
+              {libraryItems.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {libraryItems
+                    .filter(item => {
+                      const q = libraryPickerSearch.toLowerCase().trim();
+                      if (!q) return true;
+                      const nameMatch = (item.name || '').toLowerCase().includes(q);
+                      const catMatch = (item.category || '').toLowerCase().includes(q);
+                      const tagsMatch = Array.isArray(item.tags) && item.tags.some((t: string) => t.toLowerCase().includes(q));
+                      return nameMatch || catMatch || tagsMatch;
+                    })
+                    .map((item) => (
+                      <div 
+                        key={item.id}
+                        onClick={() => handleAssignPhotoFromLibrary(item)}
+                        className="group cursor-pointer bg-slate-50 hover:bg-indigo-50/50 border border-slate-200 hover:border-indigo-300 rounded-2xl p-3 transition-all duration-200 flex flex-col hover:shadow-md"
+                      >
+                        <div className="aspect-square bg-white rounded-xl overflow-hidden mb-2.5 border border-slate-200/80 relative">
+                          <ImageDisplay src={item.imageUrl} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        </div>
+                        <p className="font-bold text-slate-900 text-xs truncate">{item.name}</p>
+                        {item.category && <p className="text-[10px] text-indigo-600 font-semibold mt-0.5">{item.category}</p>}
+                        {Array.isArray(item.tags) && item.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {item.tags.slice(0, 2).map((tag: string, tidx: number) => (
+                              <span key={tidx} className="bg-slate-200/70 text-slate-600 text-[9px] px-1.5 py-0.5 rounded font-medium">
+                                #{tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <button className="mt-3 w-full py-2 bg-indigo-600 group-hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm">
+                          Assign Photo
+                        </button>
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <ImageIcon className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                  <p className="text-slate-500 font-medium">No food photos available in your library.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 flex justify-between items-center">
+              <p className="text-xs text-slate-400">
+                Selecting a photo will assign it to this item and save automatically.
+              </p>
+              <button
+                onClick={() => setLibraryPickerTarget(null)}
+                className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>
