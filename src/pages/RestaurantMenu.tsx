@@ -307,10 +307,10 @@ export default function RestaurantMenu() {
                 href={whatsappLink} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="h-[50px] px-5 sm:px-6 rounded-full bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-xs sm:text-sm inline-flex items-center gap-2.5 shadow-md shadow-[#25D366]/20 transition-all hover:-translate-y-0.5 active:scale-95"
+                className="w-[50px] h-[50px] flex items-center justify-center rounded-full bg-[#25D366] hover:bg-[#20bd5a] text-white transition-all shadow-md shadow-[#25D366]/20 hover:-translate-y-0.5 active:scale-95 shrink-0"
+                title="WhatsApp"
               >
-                <WhatsAppIcon className="w-4.5 h-4.5 fill-white" />
-                <span>Contact on WhatsApp</span>
+                <WhatsAppIcon className="w-5 h-5 fill-white" />
               </a>
             )}
 
