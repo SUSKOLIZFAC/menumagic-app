@@ -2298,7 +2298,18 @@ export default function AdminDashboard() {
                   type="tel" 
                   value={editingRestaurant.phoneNumber || ''}
                   onChange={(e) => setEditingRestaurant({ ...editingRestaurant, phoneNumber: e.target.value })}
-                  placeholder="+1 234 567 8900"
+                  placeholder="+212 600 000 000"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-slate-900 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5">WhatsApp Number (optional)</label>
+                <input 
+                  type="tel" 
+                  value={editingRestaurant.whatsappNumber || ''}
+                  onChange={(e) => setEditingRestaurant({ ...editingRestaurant, whatsappNumber: e.target.value })}
+                  placeholder="+212 690 555 754"
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-slate-900 font-medium"
                 />
               </div>
