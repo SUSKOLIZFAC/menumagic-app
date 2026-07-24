@@ -300,14 +300,14 @@ export default function RestaurantMenu() {
             </p>
           )}
 
-          {/* Restaurant Contact Actions (Height 50px, optimal spacing) */}
-          <div className="flex flex-wrap items-center justify-center gap-3">
+          {/* Restaurant Contact Actions (Uniform mini circular icon buttons) */}
+          <div className="flex items-center justify-center gap-3">
             {whatsappLink && (
               <a 
                 href={whatsappLink} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="w-[50px] h-[50px] flex items-center justify-center rounded-full bg-[#25D366] hover:bg-[#20bd5a] text-white transition-all shadow-md shadow-[#25D366]/20 hover:-translate-y-0.5 active:scale-95 shrink-0"
+                className="w-11 h-11 flex items-center justify-center rounded-full bg-[#25D366] hover:bg-[#20bd5a] text-white transition-all shadow-md shadow-[#25D366]/20 hover:-translate-y-0.5 active:scale-95 shrink-0"
                 title="WhatsApp"
               >
                 <WhatsAppIcon className="w-5 h-5 fill-white" />
@@ -317,11 +317,10 @@ export default function RestaurantMenu() {
             {restaurant.phoneNumber && (
               <a 
                 href={`tel:${restaurant.phoneNumber}`} 
-                className="h-[50px] px-5 sm:px-6 rounded-full bg-[#F8F8F8] hover:bg-slate-200/80 text-[#1F2937] font-semibold text-xs sm:text-sm inline-flex items-center gap-2 border border-slate-200/70 transition-colors"
-                title="Call Restaurant"
+                className="w-11 h-11 flex items-center justify-center rounded-full bg-[#F8F8F8] hover:bg-slate-200/80 text-slate-700 transition-colors border border-slate-200/70 shrink-0"
+                title={`Call ${restaurant.phoneNumber}`}
               >
-                <Phone className="w-4 h-4 text-slate-600" />
-                <span>{restaurant.phoneNumber}</span>
+                <Phone className="w-5 h-5 text-slate-600" />
               </a>
             )}
 
@@ -330,7 +329,7 @@ export default function RestaurantMenu() {
                 href={restaurant.instagramUrl} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="w-[50px] h-[50px] flex items-center justify-center rounded-full bg-[#F8F8F8] text-slate-600 hover:text-pink-600 hover:bg-pink-50 transition-colors border border-slate-200/70 shrink-0"
+                className="w-11 h-11 flex items-center justify-center rounded-full bg-[#F8F8F8] text-slate-600 hover:text-pink-600 hover:bg-pink-50 transition-colors border border-slate-200/70 shrink-0"
                 title="Instagram"
               >
                 <Instagram className="w-5 h-5" />
