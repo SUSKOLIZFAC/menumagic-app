@@ -270,12 +270,12 @@ export default function RestaurantMenu() {
       </div>
 
       {/* Floating White Information Card */}
-      <div className="relative z-20 max-w-3xl mx-auto px-4 -mt-16 sm:-mt-20 mb-8">
+      <div className="relative z-20 max-w-3xl mx-auto px-4 -mt-16 sm:-mt-20 mb-6">
         <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.06)] border border-[#ECECEC] text-center flex flex-col items-center relative">
           
           {/* Restaurant Logo / Avatar Badge */}
           {restaurant.imageUrl ? (
-            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border-4 border-white shadow-lg -mt-16 sm:-mt-20 mb-4 overflow-hidden bg-white shrink-0 relative">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border-4 border-white shadow-lg -mt-16 sm:-mt-20 mb-3.5 overflow-hidden bg-white shrink-0 relative">
               <ImageDisplay 
                 src={restaurant.imageUrl} 
                 alt={restaurant.name} 
@@ -283,44 +283,44 @@ export default function RestaurantMenu() {
               />
             </div>
           ) : (
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-4 border-white shadow-md -mt-14 sm:-mt-18 mb-4 bg-slate-900 text-[#D4A017] flex items-center justify-center shrink-0">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-4 border-white shadow-md -mt-14 sm:-mt-18 mb-3.5 bg-slate-900 text-[#D4A017] flex items-center justify-center shrink-0">
               <Utensils className="w-8 h-8" />
             </div>
           )}
 
-          {/* Restaurant Title */}
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold text-[#1F2937] tracking-tight mb-2">
+          {/* Restaurant Title (Reduced size by 15-20%) */}
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-serif font-bold text-[#1F2937] tracking-tight mb-2">
             {restaurant.name}
           </h1>
 
-          {/* Description */}
-          {restaurant.description && (
+          {/* Description (Only shown if explicitly provided) */}
+          {restaurant.description && restaurant.description.trim().length > 0 && (
             <p className="text-slate-500 text-xs sm:text-sm font-normal max-w-lg leading-relaxed mb-5">
               {restaurant.description}
             </p>
           )}
 
-          {/* Restaurant Contact Actions */}
-          <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3">
+          {/* Restaurant Contact Actions (Height 50px, optimal spacing) */}
+          <div className="flex flex-wrap items-center justify-center gap-3">
             {whatsappLink && (
               <a 
                 href={whatsappLink} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-xs sm:text-sm transition-all shadow-md shadow-[#25D366]/20 hover:shadow-lg hover:-translate-y-0.5 active:scale-95"
+                className="h-[50px] px-5 sm:px-6 rounded-full bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-xs sm:text-sm inline-flex items-center gap-2.5 shadow-md shadow-[#25D366]/20 transition-all hover:-translate-y-0.5 active:scale-95"
               >
-                <WhatsAppIcon className="w-4 h-4 fill-white" />
-                <span>Contact WhatsApp</span>
+                <WhatsAppIcon className="w-4.5 h-4.5 fill-white" />
+                <span>Contact on WhatsApp</span>
               </a>
             )}
 
             {restaurant.phoneNumber && (
               <a 
                 href={`tel:${restaurant.phoneNumber}`} 
-                className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-[#F8F8F8] hover:bg-slate-200/70 text-[#1F2937] font-semibold text-xs sm:text-sm transition-colors border border-slate-200/60"
+                className="h-[50px] px-5 sm:px-6 rounded-full bg-[#F8F8F8] hover:bg-slate-200/80 text-[#1F2937] font-semibold text-xs sm:text-sm inline-flex items-center gap-2 border border-slate-200/70 transition-colors"
                 title="Call Restaurant"
               >
-                <Phone className="w-3.5 h-3.5 text-slate-600" />
+                <Phone className="w-4 h-4 text-slate-600" />
                 <span>{restaurant.phoneNumber}</span>
               </a>
             )}
@@ -330,10 +330,10 @@ export default function RestaurantMenu() {
                 href={restaurant.instagramUrl} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="flex items-center justify-center w-9 h-9 rounded-full bg-[#F8F8F8] text-slate-600 hover:text-pink-600 hover:bg-pink-50 transition-colors border border-slate-200/60"
+                className="w-[50px] h-[50px] flex items-center justify-center rounded-full bg-[#F8F8F8] text-slate-600 hover:text-pink-600 hover:bg-pink-50 transition-colors border border-slate-200/70 shrink-0"
                 title="Instagram"
               >
-                <Instagram className="w-4.5 h-4.5" />
+                <Instagram className="w-5 h-5" />
               </a>
             )}
           </div>
@@ -341,23 +341,23 @@ export default function RestaurantMenu() {
       </div>
 
       {/* Sticky Navigation & Search */}
-      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md py-3 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border-b border-[#ECECEC] transition-all">
+      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md py-3.5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border-b border-[#ECECEC] transition-all">
         <div className="max-w-3xl mx-auto px-4">
           
-          {/* Search Field */}
+          {/* Search Field (High contrast placeholder text) */}
           <div className="relative mb-3">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400 pointer-events-none" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-500 pointer-events-none" />
             <input
               type="text"
               placeholder="Search dishes, drinks, desserts..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#F8F8F8] border border-slate-200/80 rounded-full py-3 pl-11 pr-10 text-[#1F2937] placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-[#D4A017] focus:ring-2 focus:ring-[#D4A017]/20 transition-all font-medium text-sm shadow-inner/none"
+              className="w-full bg-[#F8F8F8] border border-slate-200/80 rounded-full py-3 pl-11 pr-10 text-[#1F2937] placeholder:text-slate-500 font-medium text-sm focus:outline-none focus:bg-white focus:border-[#D4A017] focus:ring-2 focus:ring-[#D4A017]/20 transition-all shadow-inner/none"
             />
             {searchQuery && (
               <button 
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-900 transition-colors bg-slate-200/60 rounded-full"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-slate-900 transition-colors bg-slate-200/60 rounded-full"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -403,7 +403,7 @@ export default function RestaurantMenu() {
               <Search className="w-6 h-6" />
             </div>
             <p className="text-base font-bold text-[#1F2937] mb-1">No items found</p>
-            <p className="text-xs text-slate-400 mb-5">We couldn't find any dishes matching "{searchQuery}"</p>
+            <p className="text-xs text-slate-500 mb-5">We couldn't find any dishes matching "{searchQuery}"</p>
             <button
               onClick={() => setSearchQuery('')}
               className="px-5 py-2 bg-[#1F2937] text-white rounded-full text-xs font-semibold hover:bg-[#D4A017] transition-colors shadow-sm"
@@ -416,18 +416,18 @@ export default function RestaurantMenu() {
             {displayCategories.map((category: any, idx: number) => (
               <section key={idx} className="scroll-mt-36">
                 
-                {/* Category Header */}
+                {/* Category Header (Increased height ~15%, elegant white badge without dark overlays) */}
                 {!searchQuery && category.imageUrl ? (
-                  <div className="relative w-full h-36 sm:h-48 rounded-2xl sm:rounded-3xl overflow-hidden mb-5 shadow-sm border border-[#ECECEC]">
+                  <div className="relative w-full h-44 sm:h-56 rounded-2xl sm:rounded-3xl overflow-hidden mb-5 shadow-sm border border-[#ECECEC]">
                     <ImageDisplay 
                       src={category.imageUrl} 
                       alt={category.name} 
                       className="w-full h-full object-cover"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent"></div>
-                    <div className="absolute bottom-4 left-5 right-5 flex items-baseline justify-between">
-                      <h2 className="text-xl sm:text-2xl font-serif font-bold text-white tracking-wide">{category.name}</h2>
-                      <span className="text-xs text-white/80 font-medium">{category.items?.length || 0} items</span>
+                    {/* Floating White Title Label Card */}
+                    <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/80 shadow-md flex items-center gap-2.5">
+                      <h2 className="text-base sm:text-lg font-serif font-bold text-[#1F2937] tracking-tight">{category.name}</h2>
+                      <span className="text-[11px] font-semibold text-slate-500 bg-[#F8F8F8] px-2.5 py-0.5 rounded-full border border-slate-200/60">{category.items?.length || 0} items</span>
                     </div>
                   </div>
                 ) : (
@@ -436,7 +436,7 @@ export default function RestaurantMenu() {
                     <h2 className="text-lg sm:text-xl font-serif font-bold text-[#1F2937] tracking-tight">
                       {category.name}
                     </h2>
-                    <span className="text-xs text-slate-400 font-normal ml-auto">({category.items?.length})</span>
+                    <span className="text-xs text-slate-500 font-normal ml-auto">({category.items?.length})</span>
                   </div>
                 )}
                 
@@ -449,33 +449,34 @@ export default function RestaurantMenu() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.25, delay: Math.min(i * 0.04, 0.2) }}
                       onClick={() => setSelectedItem(item)}
-                      className="group bg-white border border-[#ECECEC] rounded-2xl p-3.5 sm:p-4 shadow-[0_2px_15px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_25px_rgba(0,0,0,0.06)] hover:border-[#D4A017]/40 transition-all duration-300 flex flex-row items-stretch justify-between gap-3.5 cursor-pointer relative overflow-hidden"
+                      className="group bg-white border border-[#ECECEC] rounded-2xl p-4 shadow-[0_2px_15px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_25px_rgba(0,0,0,0.06)] hover:border-[#D4A017]/40 transition-all duration-300 flex flex-row items-stretch justify-between gap-4 cursor-pointer relative overflow-hidden"
                     >
                       {/* Left Info Column */}
                       <div className="flex-1 flex flex-col justify-between py-0.5">
                         <div>
-                          <h3 className="text-sm sm:text-base font-bold text-[#1F2937] leading-snug group-hover:text-[#D4A017] transition-colors mb-1">
+                          <h3 className="text-sm sm:text-base font-bold text-[#1F2937] leading-snug group-hover:text-[#D4A017] transition-colors mb-1.5">
                             {item.name}
                           </h3>
                           
                           {item.description && (
-                            <p className="text-slate-500 font-normal text-xs leading-relaxed line-clamp-2 mb-2">
+                            <p className="text-slate-500 font-normal text-xs leading-relaxed line-clamp-2 mb-3">
                               {item.description}
                             </p>
                           )}
                         </div>
                         
-                        <div className="mt-2 flex items-baseline gap-1">
-                          <span className="text-[#D4A017] font-extrabold text-base sm:text-lg">
+                        {/* Prominent Price Tag */}
+                        <div className="mt-auto flex items-baseline gap-1">
+                          <span className="text-[#D4A017] font-extrabold text-lg sm:text-xl">
                             {(item.price || 0).toFixed(2)}
                           </span>
-                          <span className="text-slate-400 text-[11px] font-semibold uppercase">DH</span>
+                          <span className="text-slate-400 text-xs font-bold uppercase">DH</span>
                         </div>
                       </div>
 
                       {/* Right Image Thumbnail */}
                       {item.imageUrl && (
-                        <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl sm:rounded-2xl overflow-hidden bg-[#F8F8F8] shrink-0 shadow-sm">
+                        <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl sm:rounded-2xl overflow-hidden bg-[#F8F8F8] shrink-0 shadow-sm border border-slate-100">
                           <ImageDisplay 
                             src={item.imageUrl} 
                             alt={item.name} 
@@ -529,7 +530,7 @@ export default function RestaurantMenu() {
                     {selectedItem.name}
                   </h3>
                   <div className="text-right shrink-0">
-                    <span className="text-xl font-extrabold text-[#D4A017]">
+                    <span className="text-2xl font-extrabold text-[#D4A017]">
                       {(selectedItem.price || 0).toFixed(2)}
                     </span>
                     <span className="text-xs font-bold text-slate-400 ml-1">DH</span>
@@ -550,7 +551,7 @@ export default function RestaurantMenu() {
                     href={`https://wa.me/${cleanWhatsapp}?text=${encodeURIComponent(`Hello ${restaurant.name}! I would like to inquire about ordering "${selectedItem.name}".`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full py-3.5 px-4 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-full font-bold text-sm flex items-center justify-center gap-2 shadow-md shadow-[#25D366]/20 transition-all active:scale-95"
+                    className="w-full h-12 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-full font-bold text-sm flex items-center justify-center gap-2 shadow-md shadow-[#25D366]/20 transition-all active:scale-95"
                   >
                     <WhatsAppIcon className="w-5 h-5 fill-white" />
                     <span>Inquire via WhatsApp</span>
@@ -562,22 +563,67 @@ export default function RestaurantMenu() {
         )}
       </AnimatePresence>
       
-      {/* Footer */}
-      <footer className="mt-20 pb-10 flex flex-col items-center justify-center gap-4 text-center">
-        <div className="inline-flex items-center justify-center gap-2.5 px-5 py-2.5 border border-[#ECECEC] rounded-full bg-white shadow-sm">
-          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Digital Menu By</span>
-          <span className="font-serif text-[#1F2937] tracking-wide font-bold text-sm">Onemenu.</span>
+      {/* Clean Footer (Address, Phone, WhatsApp, Social Links & Branding) */}
+      <footer className="mt-20 pt-10 pb-12 bg-[#F8F8F8] border-t border-[#ECECEC] text-center">
+        <div className="max-w-3xl mx-auto px-4 flex flex-col items-center gap-6">
+          
+          {/* Restaurant Title & Address */}
+          <div className="space-y-1.5">
+            <h3 className="font-serif font-bold text-xl text-[#1F2937]">{restaurant.name}</h3>
+            {(restaurant.address || restaurant.location) && (
+              <div className="inline-flex items-center gap-1.5 text-xs text-slate-500">
+                <MapPin className="w-3.5 h-3.5 text-[#D4A017]" />
+                <span>{restaurant.address || restaurant.location}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Contact Row */}
+          <div className="flex flex-wrap items-center justify-center gap-3 text-xs font-semibold text-slate-600">
+            {restaurant.phoneNumber && (
+              <a 
+                href={`tel:${restaurant.phoneNumber}`} 
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-full border border-slate-200/80 hover:text-[#D4A017] transition-colors"
+              >
+                <Phone className="w-3.5 h-3.5 text-slate-500" />
+                <span>{restaurant.phoneNumber}</span>
+              </a>
+            )}
+
+            {whatsappLink && (
+              <a 
+                href={whatsappLink} 
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-full border border-slate-200/80 hover:text-[#25D366] transition-colors"
+              >
+                <WhatsAppIcon className="w-3.5 h-3.5 fill-[#25D366]" />
+                <span>WhatsApp</span>
+              </a>
+            )}
+
+            {restaurant.instagramUrl && (
+              <a 
+                href={restaurant.instagramUrl} 
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-full border border-slate-200/80 hover:text-pink-600 transition-colors"
+              >
+                <Instagram className="w-3.5 h-3.5 text-pink-600" />
+                <span>Instagram</span>
+              </a>
+            )}
+          </div>
+
+          {/* Onemenu Branding Badge */}
+          <div className="pt-2">
+            <div className="inline-flex items-center justify-center gap-2 px-4 py-2 border border-slate-200/80 rounded-full bg-white shadow-xs">
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Digital Menu By</span>
+              <span className="font-serif text-[#1F2937] tracking-wide font-bold text-xs">Onemenu.</span>
+            </div>
+          </div>
+
         </div>
-        {restaurant.instagramUrl && (
-          <a 
-            href={restaurant.instagramUrl} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-slate-400 hover:text-pink-600 transition-colors"
-          >
-            <Instagram className="w-5 h-5" />
-          </a>
-        )}
       </footer>
 
       <style dangerouslySetInnerHTML={{__html: `
