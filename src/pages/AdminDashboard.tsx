@@ -5,7 +5,7 @@ import { collection, query, where, getDocs, addDoc, doc, getDoc, setDoc, deleteD
 import { ImageDisplay } from '../components/ImageDisplay';
 import { digitizeMenuImage, semanticMatchMenuWithLibrary, generateFoodMetadata, searchWebFoodImage, searchWebPhotosForEntireMenu, LibraryPhotoEntry, MenuItemToMatch } from '../services/geminiService';
 import { QRCodeSVG } from 'qrcode.react';
-import { Plus, Upload, QrCode, LogOut, Loader2, Edit2, X, Utensils, Image as ImageIcon, ChevronRight, Store, ExternalLink, Trash2, Search, Users, Mail, Phone, Menu as MenuIcon, Sparkles, Tag, Check, RefreshCw, AlertCircle, Wand2, Filter } from 'lucide-react';
+import { Plus, Upload, QrCode, LogOut, Loader2, Edit2, X, Utensils, Image as ImageIcon, ChevronRight, Store, ExternalLink, Trash2, Search, Users, Mail, Phone, Menu as MenuIcon, Sparkles, Tag, Check, RefreshCw, AlertCircle, Wand2, Filter, Printer } from 'lucide-react';
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
@@ -44,6 +44,213 @@ export default function AdminDashboard() {
   const [newLibraryItemImage, setNewLibraryItemImage] = useState<string | null>(null);
   const [addingToLibrary, setAddingToLibrary] = useState(false);
   const [syncingMenuImages, setSyncingMenuImages] = useState(false);
+
+  // QR Code Print States
+  const [showQrPrintModal, setShowQrPrintModal] = useState(false);
+  const [qrPrintQuantity, setQrPrintQuantity] = useState<number>(30);
+  const [includeTableNumbers, setIncludeTableNumbers] = useState<boolean>(false);
+  const [qrPrintFormat, setQrPrintFormat] = useState<'30_stickers_50x50' | 'single_poster'>('30_stickers_50x50');
+
+  const handlePrintQrCodes = (
+    quantity: number = qrPrintQuantity,
+    tableNums: boolean = includeTableNumbers,
+    format: '30_stickers_50x50' | 'single_poster' = qrPrintFormat
+  ) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const svgElem = document.querySelector('.bg-slate-50.p-6 svg') || document.getElementById('master-qr-code-svg');
+    const svgHtml = svgElem?.outerHTML || '';
+
+    if (format === 'single_poster') {
+      const cardsHtml = `
+        <div class="card">
+          <div class="title">Scan for Menu</div>
+          <div class="qr-wrapper">${svgHtml}</div>
+          <div class="subtitle">${selectedRestaurant?.name || 'Restaurant Menu'}</div>
+        </div>
+      `;
+
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Print QR Code Poster - ${selectedRestaurant?.name || ''}</title>
+            <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet">
+            <style>
+              @page { size: A4; margin: 0; }
+              body { 
+                margin: 0; 
+                padding: 0; 
+                font-family: system-ui, -apple-system, sans-serif; 
+                -webkit-print-color-adjust: exact; 
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 100vh;
+                width: 100vw;
+                background: #ffffff;
+              }
+              .card {
+                width: 100%;
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                padding: 20mm;
+                text-align: center;
+                box-sizing: border-box;
+              }
+              .qr-wrapper svg {
+                width: 160mm;
+                height: 160mm;
+                margin: 20mm 0;
+              }
+              .title { 
+                font-size: 48px; 
+                font-weight: 900; 
+                color: #0f172a; 
+                text-transform: uppercase;
+                letter-spacing: 0.1em;
+              }
+              .subtitle { 
+                font-size: 56px; 
+                font-family: 'Playfair Display', Georgia, serif;
+                font-style: italic;
+                font-weight: 700; 
+                color: #334155; 
+                letter-spacing: 0.02em;
+                max-width: 90%;
+                line-height: 1.2;
+              }
+            </style>
+          </head>
+          <body>
+            ${cardsHtml}
+            <script>
+              window.onload = () => window.print();
+            </script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      return;
+    }
+
+    // Grid of 50mm x 50mm QR code stickers (30 count by default)
+    let cardsHtml = '';
+    for (let i = 1; i <= quantity; i++) {
+      const tableText = tableNums ? `Table ${i}` : (selectedRestaurant?.name || 'Scan Menu');
+      const headerText = tableNums ? (selectedRestaurant?.name || 'Scan Menu') : 'SCAN FOR MENU';
+      
+      cardsHtml += `
+        <div class="qr-card-50mm">
+          <div class="qr-card-header">${headerText}</div>
+          <div class="qr-svg-wrapper">${svgHtml}</div>
+          <div class="qr-card-footer">${tableText}</div>
+        </div>
+      `;
+    }
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Print ${quantity} QR Codes (50mm x 50mm) - ${selectedRestaurant?.name || ''}</title>
+          <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 8mm;
+            }
+            *, *:before, *:after {
+              box-sizing: border-box;
+              margin: 0;
+              padding: 0;
+            }
+            body {
+              background: #ffffff;
+              font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            .page-grid {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 3.5mm;
+              width: 194mm;
+              margin: 0 auto;
+              align-content: flex-start;
+            }
+            .qr-card-50mm {
+              width: 50mm;
+              height: 50mm;
+              border: 1px dashed #cbd5e1;
+              border-radius: 3.5mm;
+              padding: 2.5mm;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: space-between;
+              text-align: center;
+              background: #ffffff;
+              page-break-inside: avoid;
+              break-inside: avoid;
+              overflow: hidden;
+            }
+            .qr-card-header {
+              font-size: 6.5pt;
+              font-weight: 800;
+              color: #0f172a;
+              text-transform: uppercase;
+              letter-spacing: 0.05em;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              max-width: 45mm;
+              line-height: 1;
+            }
+            .qr-svg-wrapper {
+              width: 30mm;
+              height: 30mm;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            .qr-svg-wrapper svg {
+              width: 100% !important;
+              height: 100% !important;
+            }
+            .qr-card-footer {
+              font-size: 7.5pt;
+              font-weight: 700;
+              font-family: 'Playfair Display', Georgia, serif;
+              font-style: italic;
+              color: #334155;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              max-width: 45mm;
+              line-height: 1;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="page-grid">
+            ${cardsHtml}
+          </div>
+          <script>
+            window.onload = () => {
+              setTimeout(() => {
+                window.print();
+              }, 300);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
 
   const handleItemImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -2033,92 +2240,26 @@ export default function AdminDashboard() {
                         href={menuUrl} 
                         target="_blank" 
                         rel="noreferrer"
-                        className="flex items-center justify-center gap-2 w-full py-3.5 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-colors shadow-md"
+                        className="flex items-center justify-center gap-2 w-full py-3 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-colors shadow-md"
                       >
                         <ExternalLink className="w-4 h-4" />
                         Preview Digital Menu
                       </a>
+                      
                       <button 
-                        onClick={() => {
-                          const printWindow = window.open('', '_blank');
-                          if (printWindow) {
-                            const svgHtml = document.querySelector('.bg-slate-50.p-6 svg')?.outerHTML || '';
-                            const cardsHtml = `
-                              <div class="card">
-                                <div class="title">Scan for Menu</div>
-                                <div class="qr-wrapper">${svgHtml}</div>
-                                <div class="subtitle">${selectedRestaurant.name}</div>
-                              </div>
-                            `;
-
-                            printWindow.document.write(`
-                              <html>
-                                <head>
-                                  <title>Print QR Codes (A4)</title>
-                                  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet">
-                                  <style>
-                                    @page { size: A4; margin: 0; }
-                                    body { 
-                                      margin: 0; 
-                                      padding: 0; 
-                                      font-family: system-ui, -apple-system, sans-serif; 
-                                      -webkit-print-color-adjust: exact; 
-                                      display: flex;
-                                      align-items: center;
-                                      justify-content: center;
-                                      height: 100vh;
-                                      width: 100vw;
-                                      background: #ffffff;
-                                    }
-                                    .card {
-                                      width: 100%;
-                                      height: 100%;
-                                      display: flex;
-                                      flex-direction: column;
-                                      align-items: center;
-                                      justify-content: center;
-                                      padding: 20mm;
-                                      text-align: center;
-                                      box-sizing: border-box;
-                                    }
-                                    .qr-wrapper svg {
-                                      width: 160mm;
-                                      height: 160mm;
-                                      margin: 20mm 0;
-                                    }
-                                    .title { 
-                                      font-size: 48px; 
-                                      font-weight: 900; 
-                                      color: #0f172a; 
-                                      text-transform: uppercase;
-                                      letter-spacing: 0.1em;
-                                    }
-                                    .subtitle { 
-                                      font-size: 56px; 
-                                      font-family: 'Playfair Display', Georgia, serif;
-                                      font-style: italic;
-                                      font-weight: 700; 
-                                      color: #334155; 
-                                      letter-spacing: 0.02em;
-                                      max-width: 90%;
-                                      line-height: 1.2;
-                                    }
-                                  </style>
-                                </head>
-                                <body>
-                                  ${cardsHtml}
-                                  <script>
-                                    window.onload = () => window.print();
-                                  </script>
-                                </body>
-                              </html>
-                            `);
-                            printWindow.document.close();
-                          }
-                        }}
-                        className="flex items-center justify-center gap-2 w-full py-3.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors"
+                        onClick={() => handlePrintQrCodes(30, false, '30_stickers_50x50')}
+                        className="flex items-center justify-center gap-2 w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold transition-all shadow-md shadow-indigo-200 hover:-translate-y-0.5 active:scale-95"
                       >
-                        Print QR Code
+                        <Printer className="w-4.5 h-4.5" />
+                        Print 30 QR Codes (50x50 mm)
+                      </button>
+
+                      <button 
+                        onClick={() => setShowQrPrintModal(true)}
+                        className="flex items-center justify-center gap-2 w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+                      >
+                        <QrCode className="w-3.5 h-3.5 text-indigo-600" />
+                        Custom Quantity & Settings...
                       </button>
                     </div>
                   </div>
@@ -2426,6 +2567,176 @@ export default function AdminDashboard() {
               >
                 Cancel
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Print QR Codes Settings Modal */}
+      {showQrPrintModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-[2rem] p-8 max-w-lg w-full relative shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <button 
+              onClick={() => setShowQrPrintModal(false)} 
+              className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors bg-slate-100 p-2 rounded-full hover:bg-slate-200"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-6">
+              <div className="bg-indigo-100 p-3 rounded-2xl text-indigo-600">
+                <Printer className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold text-slate-900 tracking-tight">Print Table QR Codes</h3>
+                <p className="text-xs text-slate-500 font-medium">Generate print-ready QR codes for your tables</p>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              {/* Format Selection */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Print Format & Size
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setQrPrintFormat('30_stickers_50x50')}
+                    className={`p-4 rounded-2xl border-2 text-left transition-all flex flex-col justify-between ${
+                      qrPrintFormat === '30_stickers_50x50'
+                        ? 'border-indigo-600 bg-indigo-50/60 text-indigo-950 shadow-sm'
+                        : 'border-slate-200 hover:border-slate-300 bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <div>
+                      <span className="font-extrabold text-sm block">50mm × 50mm Grid</span>
+                      <span className="text-[11px] text-slate-500 block mt-1 leading-tight">15 stickers per A4 page. Perfect 5×5 cm square.</span>
+                    </div>
+                    <span className="mt-3 text-[10px] font-bold uppercase tracking-wider bg-indigo-200/60 text-indigo-800 px-2 py-0.5 rounded-md inline-block w-fit">Recommended</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setQrPrintFormat('single_poster')}
+                    className={`p-4 rounded-2xl border-2 text-left transition-all flex flex-col justify-between ${
+                      qrPrintFormat === 'single_poster'
+                        ? 'border-indigo-600 bg-indigo-50/60 text-indigo-950 shadow-sm'
+                        : 'border-slate-200 hover:border-slate-300 bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <div>
+                      <span className="font-extrabold text-sm block">Full A4 Poster</span>
+                      <span className="text-[11px] text-slate-500 block mt-1 leading-tight">1 large QR code centered on full A4 page.</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {qrPrintFormat === '30_stickers_50x50' && (
+                <>
+                  {/* Quantity Selector */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                      Total Quantity
+                    </label>
+                    <div className="flex items-center gap-2 mb-2">
+                      {[15, 30, 45, 60].map((num) => (
+                        <button
+                          key={num}
+                          type="button"
+                          onClick={() => setQrPrintQuantity(num)}
+                          className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all border ${
+                            qrPrintQuantity === num
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          {num} Codes
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-xs text-slate-500 font-medium">Custom quantity:</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={150}
+                        value={qrPrintQuantity}
+                        onChange={(e) => setQrPrintQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-24 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Table Numbering Option */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                      Label Text Option
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setIncludeTableNumbers(false)}
+                        className={`p-3 rounded-xl border text-xs font-bold transition-all text-center ${
+                          !includeTableNumbers
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        Identical ({selectedRestaurant?.name || 'Restaurant'})
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setIncludeTableNumbers(true)}
+                        className={`p-3 rounded-xl border text-xs font-bold transition-all text-center ${
+                          includeTableNumbers
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        Numbered (Table 1 to {qrPrintQuantity})
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 50mm x 50mm Visual Card Preview */}
+                  <div>
+                    <span className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                      50mm × 50mm Card Preview
+                    </span>
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-center">
+                      <div className="w-[140px] h-[140px] bg-white border border-dashed border-slate-300 rounded-xl p-2.5 flex flex-col items-center justify-between text-center shadow-xs">
+                        <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-800 truncate max-w-full">
+                          {includeTableNumbers ? selectedRestaurant?.name : 'SCAN FOR MENU'}
+                        </span>
+                        <QRCodeSVG value={menuUrl || 'https://onemenu.app'} size={76} level="H" />
+                        <span className="text-[10px] font-serif italic font-bold text-slate-700 truncate max-w-full">
+                          {includeTableNumbers ? 'Table 1' : selectedRestaurant?.name}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Print Trigger Button */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handlePrintQrCodes(qrPrintQuantity, includeTableNumbers, qrPrintFormat);
+                    setShowQrPrintModal(false);
+                  }}
+                  className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl transition-all shadow-lg shadow-indigo-200 flex items-center justify-center gap-2.5 text-base active:scale-98"
+                >
+                  <Printer className="w-5 h-5" />
+                  <span>
+                    Print {qrPrintFormat === 'single_poster' ? 'A4 Poster' : `${qrPrintQuantity} QR Codes (50x50 mm)`}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
