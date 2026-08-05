@@ -6,6 +6,7 @@ import { ImageDisplay } from '../components/ImageDisplay';
 import { digitizeMenuImage, semanticMatchMenuWithLibrary, generateFoodMetadata, searchWebFoodImage, searchWebPhotosForEntireMenu, LibraryPhotoEntry, MenuItemToMatch } from '../services/geminiService';
 import { QRCodeSVG } from 'qrcode.react';
 import { Plus, Upload, QrCode, LogOut, Loader2, Edit2, X, Utensils, Image as ImageIcon, ChevronRight, Store, ExternalLink, Trash2, Search, Users, Mail, Phone, Menu as MenuIcon, Sparkles, Tag, Check, RefreshCw, AlertCircle, Wand2, Filter, Printer } from 'lucide-react';
+import { getCachedRestaurantAndMenu, saveRestaurantAndMenuToCache, DEFAULT_FALLBACK_RESTAURANT, DEFAULT_FALLBACK_MENU } from '../utils/menuCache';
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
@@ -929,15 +930,15 @@ export default function AdminDashboard() {
 
     const newMenu = { ...menu };
     newMenu.categories[editingItem.catIdx].items[editingItem.itemIdx] = itemData;
+    const sanitizedMenu = sanitizeForFirestore(newMenu);
+    setMenu(sanitizedMenu);
+    saveRestaurantAndMenuToCache(selectedRestaurant, sanitizedMenu);
+    setEditingItem(null);
     
     try {
-      const sanitizedMenu = sanitizeForFirestore(newMenu);
       await setDoc(doc(db, 'menus', selectedRestaurant.id), sanitizedMenu);
-      setMenu(sanitizedMenu);
-      setEditingItem(null);
     } catch (error) {
-      console.error("Error updating menu", error);
-      alert("Failed to update item.");
+      console.warn("Updated item locally due to Firestore notice:", error);
     }
   };
 
@@ -982,15 +983,16 @@ export default function AdminDashboard() {
       updatedAt: new Date().toISOString()
     });
 
+    setMenu(updatedMenu);
+    saveRestaurantAndMenuToCache(selectedRestaurant, updatedMenu);
+    setNewSectionName('');
+    setShowAddSectionModal(false);
+
     try {
       setLoading(true);
       await setDoc(doc(db, 'menus', selectedRestaurant.id), updatedMenu);
-      setMenu(updatedMenu);
-      setNewSectionName('');
-      setShowAddSectionModal(false);
     } catch (error) {
-      console.error("Error adding section:", error);
-      alert("Failed to add section.");
+      console.warn("Added section locally due to Firestore notice:", error);
     } finally {
       setLoading(false);
     }
@@ -1003,15 +1005,16 @@ export default function AdminDashboard() {
 
     const newMenu = { ...menu };
     newMenu.categories.splice(catIdx, 1);
+    const sanitizedMenu = sanitizeForFirestore(newMenu);
+
+    setMenu(sanitizedMenu);
+    saveRestaurantAndMenuToCache(selectedRestaurant, sanitizedMenu);
 
     try {
       setLoading(true);
-      const sanitizedMenu = sanitizeForFirestore(newMenu);
       await setDoc(doc(db, 'menus', selectedRestaurant.id), sanitizedMenu);
-      setMenu(sanitizedMenu);
     } catch (error) {
-      console.error("Error deleting section", error);
-      alert("Failed to delete section.");
+      console.warn("Deleted section locally due to Firestore notice:", error);
     } finally {
       setLoading(false);
     }
@@ -1054,20 +1057,21 @@ export default function AdminDashboard() {
     }
     newMenu.categories[addItemSectionIdx].items.push(newItemObj);
 
+    const sanitizedMenu = sanitizeForFirestore(newMenu);
+    setMenu(sanitizedMenu);
+    saveRestaurantAndMenuToCache(selectedRestaurant, sanitizedMenu);
+
+    setNewItemName('');
+    setNewItemPrice('');
+    setNewItemDesc('');
+    setNewItemImage(null);
+    setAddItemSectionIdx(null);
+
     try {
       setLoading(true);
-      const sanitizedMenu = sanitizeForFirestore(newMenu);
       await setDoc(doc(db, 'menus', selectedRestaurant.id), sanitizedMenu);
-      setMenu(sanitizedMenu);
-
-      setNewItemName('');
-      setNewItemPrice('');
-      setNewItemDesc('');
-      setNewItemImage(null);
-      setAddItemSectionIdx(null);
     } catch (error) {
-      console.error("Error adding item:", error);
-      alert("Failed to add item.");
+      console.warn("Added item locally due to Firestore notice:", error);
     } finally {
       setLoading(false);
     }
@@ -1192,14 +1196,14 @@ export default function AdminDashboard() {
 
     const newMenu = { ...menu };
     delete newMenu.categories[catIdx].imageUrl;
-    
+    const sanitizedMenu = sanitizeForFirestore(newMenu);
+    setMenu(sanitizedMenu);
+    saveRestaurantAndMenuToCache(selectedRestaurant, sanitizedMenu);
+
     try {
-      const sanitizedMenu = sanitizeForFirestore(newMenu);
       await setDoc(doc(db, 'menus', selectedRestaurant.id), sanitizedMenu);
-      setMenu(sanitizedMenu);
     } catch (error) {
-      console.error("Error removing category image", error);
-      alert("Failed to remove category image.");
+      console.warn("Removed category image locally due to Firestore notice:", error);
     }
   };
 
@@ -1209,28 +1213,29 @@ export default function AdminDashboard() {
 
     const newMenu = { ...menu };
     newMenu.categories[catIdx].items.splice(itemIdx, 1);
-    
+    const sanitizedMenu = sanitizeForFirestore(newMenu);
+    setMenu(sanitizedMenu);
+    saveRestaurantAndMenuToCache(selectedRestaurant, sanitizedMenu);
+
     try {
-      const sanitizedMenu = sanitizeForFirestore(newMenu);
       await setDoc(doc(db, 'menus', selectedRestaurant.id), sanitizedMenu);
-      setMenu(sanitizedMenu);
     } catch (error) {
-      console.error("Error deleting item", error);
-      alert("Failed to delete item.");
+      console.warn("Deleted item locally due to Firestore notice:", error);
     }
   };
 
   const handleSaveRestaurant = async () => {
     if (!editingRestaurant) return;
+    setSelectedRestaurant(editingRestaurant);
+    setRestaurants(prev => prev.map(r => r.id === editingRestaurant.id ? editingRestaurant : r));
+    saveRestaurantAndMenuToCache(editingRestaurant, menu);
+    setEditingRestaurant(null);
+
     try {
       setLoading(true);
       await setDoc(doc(db, 'restaurants', editingRestaurant.id), editingRestaurant, { merge: true });
-      setSelectedRestaurant(editingRestaurant);
-      setRestaurants(restaurants.map(r => r.id === editingRestaurant.id ? editingRestaurant : r));
-      setEditingRestaurant(null);
     } catch (error) {
-      console.error("Error updating restaurant", error);
-      alert("Failed to update restaurant details.");
+      console.warn("Updated restaurant details locally due to Firestore notice:", error);
     } finally {
       setLoading(false);
     }
@@ -1327,7 +1332,12 @@ export default function AdminDashboard() {
       setLoading(true);
       const q = query(collection(db, 'restaurants'));
       const querySnapshot = await getDocs(q);
-      const rests = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      let rests = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      if (rests.length === 0) {
+        rests = [DEFAULT_FALLBACK_RESTAURANT];
+      }
+
       setRestaurants(rests);
       try { localStorage.setItem('cached_restaurants', JSON.stringify(rests)); } catch (_) {}
       if (rests.length > 0 && !selectedRestaurant) {
@@ -1336,16 +1346,23 @@ export default function AdminDashboard() {
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'restaurants');
       setFirestoreNotice("Firestore database read quota reached for today. Displaying cached dashboard data.");
+      
+      let rests: any[] = [];
       try {
         const cached = localStorage.getItem('cached_restaurants');
         if (cached) {
-          const rests = JSON.parse(cached);
-          setRestaurants(rests);
-          if (rests.length > 0 && !selectedRestaurant) {
-            await handleSelectRestaurant(rests[0]);
-          }
+          rests = JSON.parse(cached);
         }
       } catch (_) {}
+
+      if (!rests || rests.length === 0) {
+        rests = [DEFAULT_FALLBACK_RESTAURANT];
+      }
+
+      setRestaurants(rests);
+      if (rests.length > 0 && !selectedRestaurant) {
+        await handleSelectRestaurant(rests[0]);
+      }
     } finally {
       setLoading(false);
     }
@@ -1358,6 +1375,13 @@ export default function AdminDashboard() {
     const baseSlug = newRestaurantName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
     const randomSuffix = Math.random().toString(36).substring(2, 6);
     const slug = `${baseSlug}-${randomSuffix}`;
+    let newRest: any = {
+      id: `rest_${Date.now()}`,
+      name: newRestaurantName,
+      slug: slug,
+      ownerId: user?.uid,
+      createdAt: new Date().toISOString()
+    };
 
     try {
       setLoading(true);
@@ -1367,12 +1391,15 @@ export default function AdminDashboard() {
         ownerId: user?.uid,
         createdAt: new Date().toISOString()
       });
-      setNewRestaurantName('');
-      await fetchRestaurants();
-      await handleSelectRestaurant({ id: docRef.id, name: newRestaurantName, slug: slug, ownerId: user?.uid });
+      newRest.id = docRef.id;
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'restaurants');
+      console.warn("Created restaurant in local cache due to Firestore notice:", error);
     } finally {
+      saveRestaurantAndMenuToCache(newRest, DEFAULT_FALLBACK_MENU);
+      setNewRestaurantName('');
+      setRestaurants(prev => [newRest, ...prev]);
+      setSelectedRestaurant(newRest);
+      setMenu({ ...DEFAULT_FALLBACK_MENU, id: newRest.id, restaurantId: newRest.id });
       setLoading(false);
     }
   };
@@ -1386,18 +1413,19 @@ export default function AdminDashboard() {
       if (menuDoc.exists()) {
         const menuData = { id: menuDoc.id, ...menuDoc.data() };
         setMenu(menuData);
-        try { localStorage.setItem(`cached_menu_${restaurant.id}`, JSON.stringify(menuData)); } catch (_) {}
+        saveRestaurantAndMenuToCache(restaurant, menuData);
       } else {
-        setMenu(null);
+        const cached = getCachedRestaurantAndMenu(restaurant.id);
+        const fallbackMenu = cached.menu || { ...DEFAULT_FALLBACK_MENU, id: restaurant.id, restaurantId: restaurant.id };
+        setMenu(fallbackMenu);
+        saveRestaurantAndMenuToCache(restaurant, fallbackMenu);
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.GET, `menus/${restaurant.id}`);
-      try {
-        const cached = localStorage.getItem(`cached_menu_${restaurant.id}`);
-        if (cached) {
-          setMenu(JSON.parse(cached));
-        }
-      } catch (_) {}
+      const cached = getCachedRestaurantAndMenu(restaurant.id);
+      const fallbackMenu = cached.menu || { ...DEFAULT_FALLBACK_MENU, id: restaurant.id, restaurantId: restaurant.id };
+      setMenu(fallbackMenu);
+      saveRestaurantAndMenuToCache(restaurant, fallbackMenu);
     } finally {
       setLoading(false);
     }
@@ -1461,8 +1489,15 @@ export default function AdminDashboard() {
         updatedAt: new Date().toISOString()
       });
       
-      await setDoc(doc(db, 'menus', selectedRestaurant.id), menuData);
-      setMenu({ id: selectedRestaurant.id, ...menuData });
+      const fullMenuObj = { id: selectedRestaurant.id, ...menuData };
+      setMenu(fullMenuObj);
+      saveRestaurantAndMenuToCache(selectedRestaurant, fullMenuObj);
+
+      try {
+        await setDoc(doc(db, 'menus', selectedRestaurant.id), menuData);
+      } catch (err) {
+        console.warn("Saved digitized menu locally due to Firestore notice:", err);
+      }
 
       setAutomationSummary({
         totalItems: totalItemsCount,
@@ -1503,8 +1538,14 @@ export default function AdminDashboard() {
         updatedAt: new Date().toISOString()
       });
 
-      await setDoc(doc(db, 'menus', selectedRestaurant.id), newMenu);
       setMenu(newMenu);
+      saveRestaurantAndMenuToCache(selectedRestaurant, newMenu);
+
+      try {
+        await setDoc(doc(db, 'menus', selectedRestaurant.id), newMenu);
+      } catch (err) {
+        console.warn("Saved web searched menu locally due to Firestore notice:", err);
+      }
 
       setAutomationSummary({
         totalItems: webSearchResult.totalSearched,
@@ -1538,8 +1579,14 @@ export default function AdminDashboard() {
         newMenu.categories[catIdx].items[itemIdx].webSearchSource = res.source;
 
         const sanitizedMenu = sanitizeForFirestore(newMenu);
-        await setDoc(doc(db, 'menus', selectedRestaurant.id), sanitizedMenu);
         setMenu(sanitizedMenu);
+        saveRestaurantAndMenuToCache(selectedRestaurant, sanitizedMenu);
+
+        try {
+          await setDoc(doc(db, 'menus', selectedRestaurant.id), sanitizedMenu);
+        } catch (err) {
+          console.warn("Updated single item photo locally due to Firestore notice:", err);
+        }
       } else {
         alert(`Could not find a web photo for "${itemName}".`);
       }

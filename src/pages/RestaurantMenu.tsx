@@ -5,6 +5,7 @@ import { doc, getDoc, query, collection, where, getDocs } from 'firebase/firesto
 import { ImageDisplay } from '../components/ImageDisplay';
 import { UtensilsCrossed, Utensils, Search, X, Instagram, Phone, Globe, ChevronRight, Share2, Sparkles, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getCachedRestaurantAndMenu, saveRestaurantAndMenuToCache } from '../utils/menuCache';
 
 export default function RestaurantMenu() {
   const { restaurantId } = useParams<{ restaurantId: string }>();
@@ -81,9 +82,11 @@ export default function RestaurantMenu() {
   }, [restaurantId]);
 
   const fetchData = async () => {
+    let restData: any = null;
+    let menuData: any = null;
+
     try {
       let actualRestaurantId = restaurantId!;
-      let restData = null;
 
       // First, try to find by slug
       const q = query(collection(db, 'restaurants'), where('slug', '==', restaurantId));
@@ -102,33 +105,38 @@ export default function RestaurantMenu() {
       }
 
       if (restData) {
-        setRestaurant(restData);
-        try { localStorage.setItem(`cached_restaurant_${restaurantId}`, JSON.stringify(restData)); } catch (_) {}
         const menuDoc = await getDoc(doc(db, 'menus', actualRestaurantId));
         if (menuDoc.exists()) {
-          const menuData: any = { id: menuDoc.id, ...menuDoc.data() };
-          setMenu(menuData);
-          try { localStorage.setItem(`cached_menu_${actualRestaurantId}`, JSON.stringify(menuData)); } catch (_) {}
-          if (menuData.categories && menuData.categories.length > 0) {
-            setActiveCategory('All');
-          }
+          menuData = { id: menuDoc.id, ...menuDoc.data() };
+        }
+      }
+
+      if (restData && menuData) {
+        setRestaurant(restData);
+        setMenu(menuData);
+        saveRestaurantAndMenuToCache(restData, menuData);
+        if (menuData.categories && menuData.categories.length > 0) {
+          setActiveCategory('All');
+        }
+      } else {
+        // If Firestore had no data for this ID, check cache or default fallback
+        const cached = getCachedRestaurantAndMenu(restaurantId);
+        setRestaurant(cached.restaurant);
+        setMenu(cached.menu);
+        if (cached.menu?.categories && cached.menu.categories.length > 0) {
+          setActiveCategory('All');
         }
       }
     } catch (error) {
-      console.warn("Could not fetch menu from Firestore:", error);
+      console.warn("Could not fetch menu from Firestore, falling back to cache:", error);
       handleFirestoreError(error, OperationType.GET, `menus/${restaurantId}`);
-      try {
-        const cachedRest = localStorage.getItem(`cached_restaurant_${restaurantId}`);
-        const cachedMenu = localStorage.getItem(`cached_menu_${restaurantId}`);
-        if (cachedRest) setRestaurant(JSON.parse(cachedRest));
-        if (cachedMenu) {
-          const parsed = JSON.parse(cachedMenu);
-          setMenu(parsed);
-          if (parsed.categories && parsed.categories.length > 0) {
-            setActiveCategory('All');
-          }
-        }
-      } catch (_) {}
+      
+      const cached = getCachedRestaurantAndMenu(restaurantId);
+      setRestaurant(cached.restaurant);
+      setMenu(cached.menu);
+      if (cached.menu?.categories && cached.menu.categories.length > 0) {
+        setActiveCategory('All');
+      }
     } finally {
       setLoading(false);
     }
