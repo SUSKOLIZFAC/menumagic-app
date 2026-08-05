@@ -45,6 +45,15 @@ export default function AdminDashboard() {
   const [addingToLibrary, setAddingToLibrary] = useState(false);
   const [syncingMenuImages, setSyncingMenuImages] = useState(false);
 
+  // Add Section & Add Item States
+  const [showAddSectionModal, setShowAddSectionModal] = useState(false);
+  const [newSectionName, setNewSectionName] = useState('');
+  const [addItemSectionIdx, setAddItemSectionIdx] = useState<number | null>(null);
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemPrice, setNewItemPrice] = useState('');
+  const [newItemDesc, setNewItemDesc] = useState('');
+  const [newItemImage, setNewItemImage] = useState<string | null>(null);
+
   // QR Code Print States
   const [showQrPrintModal, setShowQrPrintModal] = useState(false);
   const [qrPrintQuantity, setQrPrintQuantity] = useState<number>(30);
@@ -932,6 +941,189 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleAddSection = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSectionName.trim() || !selectedRestaurant) return;
+
+    const sectionName = newSectionName.trim();
+    const existingMenu = menu || { id: selectedRestaurant.id, restaurantId: selectedRestaurant.id, categories: [] };
+    const categories = Array.isArray(existingMenu.categories) ? [...existingMenu.categories] : [];
+
+    const exists = categories.some((c: any) => c.name?.toLowerCase().trim() === sectionName.toLowerCase());
+    if (exists) {
+      alert(`The section "${sectionName}" already exists!`);
+      return;
+    }
+
+    let categoryImg: string | undefined = undefined;
+    try {
+      // Check if we can find a matching category photo
+      const catLibSnapshot = await getDocs(collection(db, 'category_library'));
+      const catList: any[] = [];
+      catLibSnapshot.forEach(d => {
+        const data = d.data();
+        if (data?.name && data?.imageUrl) catList.push(data);
+      });
+      const matched = catList.find(c => c.name.toLowerCase().trim() === sectionName.toLowerCase());
+      if (matched?.imageUrl) categoryImg = matched.imageUrl;
+    } catch (_) {}
+
+    const newCategory = {
+      name: sectionName,
+      imageUrl: categoryImg || undefined,
+      items: []
+    };
+
+    categories.push(newCategory);
+
+    const updatedMenu = sanitizeForFirestore({
+      ...existingMenu,
+      categories,
+      updatedAt: new Date().toISOString()
+    });
+
+    try {
+      setLoading(true);
+      await setDoc(doc(db, 'menus', selectedRestaurant.id), updatedMenu);
+      setMenu(updatedMenu);
+      setNewSectionName('');
+      setShowAddSectionModal(false);
+    } catch (error) {
+      console.error("Error adding section:", error);
+      alert("Failed to add section.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteSection = async (catIdx: number) => {
+    if (!menu || !selectedRestaurant) return;
+    const catName = menu.categories[catIdx]?.name || 'this section';
+    if (!window.confirm(`Are you sure you want to delete the section "${catName}" and all its items?`)) return;
+
+    const newMenu = { ...menu };
+    newMenu.categories.splice(catIdx, 1);
+
+    try {
+      setLoading(true);
+      const sanitizedMenu = sanitizeForFirestore(newMenu);
+      await setDoc(doc(db, 'menus', selectedRestaurant.id), sanitizedMenu);
+      setMenu(sanitizedMenu);
+    } catch (error) {
+      console.error("Error deleting section", error);
+      alert("Failed to delete section.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddNewItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (addItemSectionIdx === null || !newItemName.trim() || !selectedRestaurant) return;
+
+    const targetCategory = menu?.categories[addItemSectionIdx];
+    if (!targetCategory) return;
+
+    let itemImg = newItemImage;
+    const parsedPrice = parseFloat(newItemPrice) || 0;
+
+    if (!itemImg) {
+      const { updatedCategories, count } = await autoFillItemImages([{
+        name: targetCategory.name || '',
+        items: [{ name: newItemName.trim(), price: parsedPrice, description: newItemDesc.trim() }]
+      }]);
+      if (count > 0 && updatedCategories[0]?.items[0]?.imageUrl) {
+        itemImg = updatedCategories[0].items[0].imageUrl;
+      }
+    }
+
+    const newItemObj = {
+      name: newItemName.trim(),
+      price: parsedPrice,
+      description: newItemDesc.trim() || undefined,
+      imageUrl: itemImg || undefined
+    };
+
+    if (newItemObj.name && newItemObj.imageUrl) {
+      await syncItemToLibrary(newItemObj.name, newItemObj.imageUrl, targetCategory.name, selectedRestaurant.name);
+    }
+
+    const newMenu = { ...menu };
+    if (!newMenu.categories[addItemSectionIdx].items) {
+      newMenu.categories[addItemSectionIdx].items = [];
+    }
+    newMenu.categories[addItemSectionIdx].items.push(newItemObj);
+
+    try {
+      setLoading(true);
+      const sanitizedMenu = sanitizeForFirestore(newMenu);
+      await setDoc(doc(db, 'menus', selectedRestaurant.id), sanitizedMenu);
+      setMenu(sanitizedMenu);
+
+      setNewItemName('');
+      setNewItemPrice('');
+      setNewItemDesc('');
+      setNewItemImage(null);
+      setAddItemSectionIdx(null);
+    } catch (error) {
+      console.error("Error adding item:", error);
+      alert("Failed to add item.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleNewItemImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = async () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1200;
+        const MAX_HEIGHT = 1200;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/webp', 0.8);
+        
+        try {
+          setLoading(true);
+          const imageRef = await addDoc(collection(db, 'images'), {
+            dataUrl,
+            createdAt: serverTimestamp()
+          });
+          setNewItemImage(imageRef.id);
+        } catch (error) {
+          console.error("Error uploading new item image:", error);
+          alert("Failed to upload image.");
+        } finally {
+          setLoading(false);
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleCategoryImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, catIdx: number) => {
     const file = e.target.files?.[0];
     if (!file || !menu || !selectedRestaurant) return;
@@ -1360,11 +1552,20 @@ export default function AdminDashboard() {
   };
 
   const handleAssignPhotoFromLibrary = async (libraryItem: any) => {
-    if (!libraryPickerTarget || !menu || !selectedRestaurant) return;
+    if (!libraryPickerTarget || !selectedRestaurant) return;
     const { catIdx, itemIdx } = libraryPickerTarget;
 
+    if (itemIdx === -1) {
+      setNewItemImage(libraryItem.imageUrl);
+      setLibraryPickerTarget(null);
+      return;
+    }
+
+    if (!menu) return;
+
     const newMenu = { ...menu };
-    const currentItem = newMenu.categories[catIdx].items[itemIdx];
+    const currentItem = newMenu.categories[catIdx]?.items?.[itemIdx];
+    if (!currentItem) return;
     currentItem.imageUrl = libraryItem.imageUrl;
     currentItem.isAiMatched = false;
 
@@ -1426,11 +1627,15 @@ export default function AdminDashboard() {
     ...category,
     originalIdx: catIdx,
     items: (category.items || []).map((item: any, itemIdx: number) => ({ ...item, originalIdx: itemIdx })).filter((item: any) => {
+      if (!safeSearchQuery) return true;
       const nameMatch = (item?.name || '').toLowerCase().includes(safeSearchQuery);
       const descMatch = (item?.description || '').toLowerCase().includes(safeSearchQuery);
       return nameMatch || descMatch;
     })
-  })).filter((category: any) => category.items && category.items.length > 0);
+  })).filter((category: any) => {
+    if (!safeSearchQuery) return true;
+    return category.items && category.items.length > 0;
+  });
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-slate-900 selection:bg-indigo-500/30">
@@ -1879,6 +2084,14 @@ export default function AdminDashboard() {
                 </div>
                 
                 <div className="flex gap-3 flex-wrap">
+                  <button
+                    onClick={() => setShowAddSectionModal(true)}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold transition-all shadow-md shadow-emerald-200 active:scale-95"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add New Section / Extra
+                  </button>
+
                   {menu && (
                     <button
                       onClick={handleManualAutoFillMenu}
@@ -2033,9 +2246,18 @@ export default function AdminDashboard() {
                         <div className="space-y-12">
                           {filteredCategories.map((category: any, idx: number) => (
                             <div key={idx} className="relative">
-                              <div className="flex items-center gap-4 mb-8">
+                              <div className="flex items-center gap-3 mb-8 flex-wrap">
                                 <h3 className="text-3xl font-bold text-slate-900 font-serif tracking-tight">{category.name}</h3>
                                 
+                                <button 
+                                  onClick={() => setAddItemSectionIdx(category.originalIdx)}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition-all border border-indigo-200 shadow-sm"
+                                  title="Add new item or extra supplement to this section"
+                                >
+                                  <Plus className="w-3.5 h-3.5 text-indigo-600" />
+                                  Add Item / Extra
+                                </button>
+
                                 <label className="cursor-pointer p-2 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors" title="Upload Category Image">
                                   <Upload className="w-4 h-4 text-slate-600" />
                                   <input 
@@ -2045,6 +2267,14 @@ export default function AdminDashboard() {
                                     onChange={(e) => handleCategoryImageUpload(e, category.originalIdx)} 
                                   />
                                 </label>
+
+                                <button 
+                                  onClick={() => handleDeleteSection(category.originalIdx)}
+                                  className="p-2 bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-full transition-colors"
+                                  title="Delete Section"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
 
                                 <div className="h-px flex-1 bg-gradient-to-r from-slate-200 to-transparent"></div>
                                 <span className="bg-white text-indigo-600 text-xs font-bold px-3 py-1.5 rounded-full border border-slate-200 shadow-sm">{category.items.length} Items</span>
@@ -2156,8 +2386,17 @@ export default function AdminDashboard() {
                               </div>
                             </div>
                           ))}
-                        </div>
-                      ) : (
+                           <div className="pt-4 flex justify-center">
+                             <button
+                               onClick={() => setShowAddSectionModal(true)}
+                               className="inline-flex items-center gap-2.5 px-6 py-3.5 bg-slate-900 hover:bg-indigo-600 text-white rounded-2xl text-sm font-bold transition-all shadow-md hover:-translate-y-0.5 active:scale-95"
+                             >
+                               <Plus className="w-4 h-4 text-emerald-400" />
+                               Add New Section / Extra Supplement
+                             </button>
+                           </div>
+                         </div>
+                       ) : (
                         <div className="bg-white rounded-3xl p-12 shadow-sm border border-slate-100 text-center">
                           <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
                             <Search className="w-8 h-8 text-slate-400" />
@@ -2738,6 +2977,222 @@ export default function AdminDashboard() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add New Section Modal */}
+      {showAddSectionModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-[2rem] p-8 max-w-md w-full relative shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <button 
+              onClick={() => { setShowAddSectionModal(false); setNewSectionName(''); }}
+              className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors bg-slate-100 p-2 rounded-full hover:bg-slate-200"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-6">
+              <div className="bg-emerald-100 p-3 rounded-2xl text-emerald-600">
+                <Plus className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold text-slate-900 tracking-tight">Add New Section</h3>
+                <p className="text-sm text-slate-500 font-medium">Create a category or supplement extra</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleAddSection} className="space-y-5">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Quick Presets
+                </label>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {[
+                    '🧀 Supplements & Extras',
+                    '🥤 Beverages & Drinks',
+                    '🍰 Desserts',
+                    '🥫 Sauces & Dips',
+                    '🍟 Side Dishes',
+                    '🍕 Pizzas',
+                    '🍔 Burgers',
+                    '🥗 Salads'
+                  ].map((preset, pIdx) => {
+                    const cleanPreset = preset.replace(/^[\u1F300-\u1F9FF\u2600-\u26FF\u2700-\u27BF\u1F600-\u1F64F\u1F680-\u1F6FF\u1F1E0-\u1F1FF\u2B50\u2B55\u231A\u231B\u23F0\u23F3]\s*/, '');
+                    return (
+                      <button
+                        key={pIdx}
+                        type="button"
+                        onClick={() => setNewSectionName(cleanPreset)}
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 text-slate-700 rounded-xl text-xs font-bold transition-all border border-slate-200"
+                      >
+                        {preset}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Section / Category Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Suppléments & Extra, Drinks, Desserts..."
+                  value={newSectionName}
+                  onChange={(e) => setNewSectionName(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all placeholder:text-slate-400"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowAddSectionModal(false); setNewSectionName(''); }}
+                  className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading || !newSectionName.trim()}
+                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow-md shadow-emerald-200 disabled:opacity-50"
+                >
+                  {loading ? 'Adding...' : 'Create Section'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add New Item / Extra Modal */}
+      {addItemSectionIdx !== null && menu?.categories[addItemSectionIdx] && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-[2rem] p-8 max-w-lg w-full relative shadow-2xl animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+            <button 
+              onClick={() => { setAddItemSectionIdx(null); setNewItemName(''); setNewItemPrice(''); setNewItemDesc(''); setNewItemImage(null); }}
+              className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors bg-slate-100 p-2 rounded-full hover:bg-slate-200"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-6">
+              <div className="bg-indigo-100 p-3 rounded-2xl text-indigo-600">
+                <Utensils className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold text-slate-900 tracking-tight">Add Item / Extra</h3>
+                <p className="text-sm text-slate-500 font-medium">
+                  Adding to section <span className="font-bold text-indigo-600">"{menu.categories[addItemSectionIdx].name}"</span>
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleAddNewItem} className="space-y-5">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Item or Supplement Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Extra Cheese, Extra Sauce, Coca-Cola 33cl, Caesar Salad..."
+                  value={newItemName}
+                  onChange={(e) => setNewItemName(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all placeholder:text-slate-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Price (DH) *
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  required
+                  placeholder="e.g. 5.00"
+                  value={newItemPrice}
+                  onChange={(e) => setNewItemPrice(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all placeholder:text-slate-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Description / Ingredients (Optional)
+                </label>
+                <textarea
+                  placeholder="e.g. Extra melted mozzarella topping, house made garlic dip..."
+                  value={newItemDesc}
+                  onChange={(e) => setNewItemDesc(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all placeholder:text-slate-400 resize-none h-20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Item Photo (Optional)
+                </label>
+                
+                {newItemImage ? (
+                  <div className="relative w-full h-36 rounded-2xl overflow-hidden border border-slate-200 bg-slate-50">
+                    <ImageDisplay src={newItemImage} alt="New item preview" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setNewItemImage(null)}
+                      className="absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-full shadow-md hover:bg-red-700 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-3">
+                    <label className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl border border-dashed border-slate-300 font-bold text-xs cursor-pointer transition-all">
+                      <Upload className="w-4 h-4 text-slate-500" />
+                      <span>Upload Photo</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleNewItemImageUpload}
+                      />
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={() => setLibraryPickerTarget({ catIdx: addItemSectionIdx, itemIdx: -1, itemName: newItemName || 'New Extra Item' })}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl border border-indigo-200 font-bold text-xs transition-all"
+                    >
+                      <ImageIcon className="w-4 h-4 text-indigo-600" />
+                      <span>Cloud Library</span>
+                    </button>
+                  </div>
+                )}
+                <p className="text-[11px] text-slate-400 font-medium mt-1">
+                  If left empty, Gemini AI will automatically find a photo for this item from your library!
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setAddItemSectionIdx(null); setNewItemName(''); setNewItemPrice(''); setNewItemDesc(''); setNewItemImage(null); }}
+                  className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading || !newItemName.trim() || !newItemPrice}
+                  className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all shadow-md shadow-indigo-200 disabled:opacity-50"
+                >
+                  {loading ? 'Adding...' : 'Add Item'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

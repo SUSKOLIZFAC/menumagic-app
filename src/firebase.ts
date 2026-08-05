@@ -64,6 +64,17 @@ export interface FirestoreErrorInfo {
   }
 }
 
+export function isQuotaError(error: unknown): boolean {
+  if (!error) return false;
+  const msg = error instanceof Error ? error.message : String(error);
+  return (
+    msg.includes('Quota limit exceeded') ||
+    msg.includes('quota') ||
+    msg.includes('RESOURCE_EXHAUSTED') ||
+    msg.includes('resource-exhausted')
+  );
+}
+
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
   const errorMessage = error instanceof Error ? error.message : String(error);
   const errInfo: FirestoreErrorInfo = {
@@ -84,7 +95,12 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   };
-  console.warn('Firestore Operation Notice:', JSON.stringify(errInfo));
+  
+  if (isQuotaError(error)) {
+    console.warn('Firestore Notice: Free daily read quota reached for today. Displaying local cached data.');
+  } else {
+    console.warn('Firestore Operation Notice:', JSON.stringify(errInfo));
+  }
   return errInfo;
 }
 

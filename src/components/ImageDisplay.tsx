@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, isQuotaError } from '../firebase';
 
 interface ImageDisplayProps {
   src?: string;
   alt?: string;
   className?: string;
 }
+
+// Global in-memory cache for fetched image data URLs
+const imageCache = new Map<string, string | null>();
+let isQuotaExceededGlobal = false;
 
 export function ImageDisplay({ src, alt, className }: ImageDisplayProps) {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
@@ -24,7 +28,8 @@ export function ImageDisplay({ src, alt, className }: ImageDisplayProps) {
         return;
       }
 
-      if (src.startsWith('data:') || src.startsWith('http')) {
+      // If direct data URL, http URL, or local asset
+      if (src.startsWith('data:') || src.startsWith('http') || src.startsWith('/')) {
         if (isMounted) {
           setDataUrl(src);
           setLoading(false);
@@ -32,14 +37,65 @@ export function ImageDisplay({ src, alt, className }: ImageDisplayProps) {
         return;
       }
 
-      // It's a Firestore document ID
+      // Check in-memory cache first
+      if (imageCache.has(src)) {
+        if (isMounted) {
+          setDataUrl(imageCache.get(src) || null);
+          setLoading(false);
+        }
+        return;
+      }
+
+      // Check localStorage cache
+      try {
+        const cached = localStorage.getItem(`img_cache_${src}`);
+        if (cached) {
+          imageCache.set(src, cached);
+          if (isMounted) {
+            setDataUrl(cached);
+            setLoading(false);
+          }
+          return;
+        }
+      } catch (_) {}
+
+      // If global quota is already exceeded, don't attempt Firestore fetch
+      if (isQuotaExceededGlobal) {
+        if (isMounted) {
+          setDataUrl(null);
+          setLoading(false);
+        }
+        return;
+      }
+
+      // Fetch from Firestore document
       try {
         const docSnap = await getDoc(doc(db, 'images', src));
         if (docSnap.exists() && isMounted) {
-          setDataUrl(docSnap.data().dataUrl);
+          const url = docSnap.data().dataUrl;
+          if (url) {
+            imageCache.set(src, url);
+            try {
+              localStorage.setItem(`img_cache_${src}`, url);
+            } catch (_) {}
+            setDataUrl(url);
+          } else {
+            imageCache.set(src, null);
+            setDataUrl(null);
+          }
+        } else {
+          imageCache.set(src, null);
+          if (isMounted) setDataUrl(null);
         }
-      } catch (error) {
-        console.error("Error fetching image:", error);
+      } catch (error: any) {
+        if (isQuotaError(error)) {
+          isQuotaExceededGlobal = true;
+          console.warn("Firestore image fetch notice: Free daily read quota reached for today.");
+        } else {
+          console.warn("Image fetch notice:", error?.message || error);
+        }
+        imageCache.set(src, null);
+        if (isMounted) setDataUrl(null);
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -61,8 +117,8 @@ export function ImageDisplay({ src, alt, className }: ImageDisplayProps) {
   }
 
   if (!dataUrl) {
-    return <div className={`bg-slate-100 flex items-center justify-center text-slate-400 ${className}`}>No Image</div>;
+    return <div className={`bg-slate-100 flex items-center justify-center text-slate-400 text-xs font-medium ${className}`}>No Image</div>;
   }
 
-  return <img src={dataUrl} alt={alt} className={className} />;
+  return <img src={dataUrl} alt={alt || ''} className={className} />;
 }
