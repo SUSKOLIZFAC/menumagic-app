@@ -915,14 +915,6 @@ export default function AdminDashboard() {
     if (!editingItem || !menu || !selectedRestaurant) return;
     
     let itemData = { ...editingItem.data };
-    if (!itemData.imageUrl && itemData.name) {
-      const { updatedCategories, count } = await autoFillItemImages([ { items: [itemData] } ]);
-      if (count > 0) {
-        itemData = updatedCategories[0].items[0];
-        setAutoFilledCount(1);
-        setTimeout(() => setAutoFilledCount(null), 4000);
-      }
-    }
 
     if (itemData.name && itemData.imageUrl) {
       await syncItemToLibrary(itemData.name, itemData.imageUrl);
@@ -2632,7 +2624,7 @@ export default function AdminDashboard() {
                       <ImageIcon className="w-8 h-8" />
                     </div>
                   )}
-                  <div className="flex-1">
+                  <div className="flex-1 flex flex-col gap-2">
                     <input 
                       type="file" 
                       id="item-image-upload"
@@ -2642,10 +2634,18 @@ export default function AdminDashboard() {
                     />
                     <label 
                       htmlFor="item-image-upload"
-                      className="inline-flex items-center justify-center w-full gap-2 px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold cursor-pointer hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
+                      className="inline-flex items-center justify-center w-full gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold cursor-pointer hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
                     >
                       <Upload className="w-4 h-4" /> Change Photo
                     </label>
+                    {editingItem.data.imageUrl && (
+                      <button 
+                        onClick={() => setEditingItem(prev => prev ? { ...prev, data: { ...prev.data, imageUrl: null } } : null)}
+                        className="inline-flex items-center justify-center w-full gap-2 px-4 py-2 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm font-bold cursor-pointer hover:bg-red-100 hover:border-red-200 transition-all shadow-sm"
+                      >
+                        <Trash2 className="w-4 h-4" /> Remove Photo
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
