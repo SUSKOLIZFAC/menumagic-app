@@ -22,6 +22,7 @@ export default function AdminDashboard() {
   const [newRestaurantName, setNewRestaurantName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [editingItem, setEditingItem] = useState<{catIdx: number, itemIdx: number, data: any} | null>(null);
+  const [editingCategoryName, setEditingCategoryName] = useState<{idx: number, name: string} | null>(null);
   const [editingRestaurant, setEditingRestaurant] = useState<any | null>(null);
   const [autoFilledCount, setAutoFilledCount] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<'restaurants' | 'leads' | 'library'>('restaurants');
@@ -1009,6 +1010,29 @@ export default function AdminDashboard() {
       console.warn("Deleted section locally due to Firestore notice:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveCategoryName = async () => {
+    if (!editingCategoryName || !menu || !selectedRestaurant) return;
+    const newName = editingCategoryName.name.trim();
+    if (!newName) {
+      setEditingCategoryName(null);
+      return;
+    }
+
+    const newMenu = { ...menu };
+    newMenu.categories[editingCategoryName.idx].name = newName;
+    const sanitizedMenu = sanitizeForFirestore(newMenu);
+    
+    setMenu(sanitizedMenu);
+    saveRestaurantAndMenuToCache(selectedRestaurant, sanitizedMenu);
+    setEditingCategoryName(null);
+
+    try {
+      await setDoc(doc(db, 'menus', selectedRestaurant.id), sanitizedMenu);
+    } catch (error) {
+      console.warn("Updated section name locally due to Firestore notice:", error);
     }
   };
 
@@ -2286,7 +2310,35 @@ export default function AdminDashboard() {
                           {filteredCategories.map((category: any, idx: number) => (
                             <div key={idx} className="relative">
                               <div className="flex items-center gap-3 mb-8 flex-wrap">
-                                <h3 className="text-3xl font-bold text-slate-900 font-serif tracking-tight">{category.name}</h3>
+                                {editingCategoryName?.idx === category.originalIdx ? (
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="text"
+                                      autoFocus
+                                      value={editingCategoryName.name}
+                                      onChange={(e) => setEditingCategoryName({ ...editingCategoryName, name: e.target.value })}
+                                      className="text-3xl font-bold text-slate-900 font-serif tracking-tight border-b-2 border-indigo-500 bg-transparent focus:outline-none focus:ring-0 px-1 py-0 w-64"
+                                      onKeyDown={(e) => { if (e.key === 'Enter') handleSaveCategoryName(); else if (e.key === 'Escape') setEditingCategoryName(null); }}
+                                    />
+                                    <button onClick={handleSaveCategoryName} className="p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors shadow-sm">
+                                      <Check className="w-4 h-4" />
+                                    </button>
+                                    <button onClick={() => setEditingCategoryName(null)} className="p-2 bg-white text-slate-500 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shadow-sm">
+                                      <X className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2 group/title">
+                                    <h3 className="text-3xl font-bold text-slate-900 font-serif tracking-tight">{category.name}</h3>
+                                    <button 
+                                      onClick={() => setEditingCategoryName({ idx: category.originalIdx, name: category.name })}
+                                      className="opacity-0 group-hover/title:opacity-100 p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                      title="Edit Section Name"
+                                    >
+                                      <Edit2 className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                )}
                                 
                                 <button 
                                   onClick={() => setAddItemSectionIdx(category.originalIdx)}
