@@ -12,65 +12,6 @@ interface ImageDisplayProps {
 const imageCache = new Map<string, string | null>();
 let isQuotaExceededGlobal = false;
 
-export function getFoodFallbackUrl(dishName?: string): string {
-  if (!dishName) return "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80";
-  const name = dishName.toLowerCase();
-
-  if (name.includes('cheese') && name.includes('burger')) {
-    return "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80";
-  }
-  if (name.includes('egg') || name.includes('oeuf')) {
-    return "https://images.unsplash.com/photo-1525164286253-04e68b9d94c3?auto=format&fit=crop&w=800&q=80";
-  }
-  if (name.includes('king') || name.includes('double') || name.includes('maxi') || name.includes('qualité') || name.includes('qualite')) {
-    return "https://images.unsplash.com/photo-1553979459-d2229ba7433b?auto=format&fit=crop&w=800&q=80";
-  }
-  if (name.includes('burger')) {
-    return "https://images.unsplash.com/photo-1586190848861-99aa4a171e90?auto=format&fit=crop&w=800&q=80";
-  }
-  if (name.includes('chawarma') || name.includes('shawarma')) {
-    return "https://images.unsplash.com/photo-1561758033-d89a9ad46330?auto=format&fit=crop&w=800&q=80";
-  }
-  if (name.includes('taco') || name.includes('wrap') || name.includes('panini') || name.includes('sandwich')) {
-    return "https://images.unsplash.com/photo-1509722747041-616f39b57569?auto=format&fit=crop&w=800&q=80";
-  }
-  if (name.includes('pizza')) {
-    return "https://images.unsplash.com/photo-1604068549290-dea0e4a305ca?auto=format&fit=crop&w=800&q=80";
-  }
-  if (name.includes('juice') || name.includes('jus') || name.includes('shake') || name.includes('smoothie')) {
-    return "https://images.unsplash.com/photo-1613478223719-2ab802602423?auto=format&fit=crop&w=800&q=80";
-  }
-  if (name.includes('drink') || name.includes('coca') || name.includes('boisson') || name.includes('soda') || name.includes('water') || name.includes('eau')) {
-    return "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=800&q=80";
-  }
-  if (name.includes('chicken') || name.includes('poulet') || name.includes('grill') || name.includes('nugget')) {
-    return "https://images.unsplash.com/photo-1532550907401-a500c9a57435?auto=format&fit=crop&w=800&q=80";
-  }
-  if (name.includes('fries') || name.includes('frite')) {
-    return "https://images.unsplash.com/photo-1576107232684-1279f3908594?auto=format&fit=crop&w=800&q=80";
-  }
-  if (name.includes('pasta') || name.includes('spaghetti') || name.includes('italien')) {
-    return "https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=800&q=80";
-  }
-  if (name.includes('salad') || name.includes('salade')) {
-    return "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80";
-  }
-  if (name.includes('dessert') || name.includes('cake') || name.includes('glace') || name.includes('tiramisu')) {
-    return "https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=800&q=80";
-  }
-
-  // Consistent fallback per dish name
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash += name.charCodeAt(i);
-  const fallbacks = [
-    "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=800&q=80"
-  ];
-  return fallbacks[hash % fallbacks.length];
-}
-
 export function ImageDisplay({ src, alt, className }: ImageDisplayProps) {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -81,7 +22,7 @@ export function ImageDisplay({ src, alt, className }: ImageDisplayProps) {
     const loadImage = async () => {
       if (!src) {
         if (isMounted) {
-          setDataUrl(getFoodFallbackUrl(alt));
+          setDataUrl(null);
           setLoading(false);
         }
         return;
@@ -99,8 +40,7 @@ export function ImageDisplay({ src, alt, className }: ImageDisplayProps) {
       // Check in-memory cache first
       if (imageCache.has(src)) {
         if (isMounted) {
-          const cachedUrl = imageCache.get(src);
-          setDataUrl(cachedUrl || getFoodFallbackUrl(alt));
+          setDataUrl(imageCache.get(src) || null);
           setLoading(false);
         }
         return;
@@ -122,7 +62,7 @@ export function ImageDisplay({ src, alt, className }: ImageDisplayProps) {
       // If global quota is already exceeded, don't attempt Firestore fetch
       if (isQuotaExceededGlobal) {
         if (isMounted) {
-          setDataUrl(getFoodFallbackUrl(alt));
+          setDataUrl(null);
           setLoading(false);
         }
         return;
@@ -141,11 +81,11 @@ export function ImageDisplay({ src, alt, className }: ImageDisplayProps) {
             setDataUrl(url);
           } else {
             imageCache.set(src, null);
-            setDataUrl(getFoodFallbackUrl(alt));
+            setDataUrl(null);
           }
         } else {
           imageCache.set(src, null);
-          if (isMounted) setDataUrl(getFoodFallbackUrl(alt));
+          if (isMounted) setDataUrl(null);
         }
       } catch (error: any) {
         if (isQuotaError(error)) {
@@ -155,7 +95,7 @@ export function ImageDisplay({ src, alt, className }: ImageDisplayProps) {
           console.warn("Image fetch notice:", error?.message || error);
         }
         imageCache.set(src, null);
-        if (isMounted) setDataUrl(getFoodFallbackUrl(alt));
+        if (isMounted) setDataUrl(null);
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -168,24 +108,26 @@ export function ImageDisplay({ src, alt, className }: ImageDisplayProps) {
     return () => {
       isMounted = false;
     };
-  }, [src, alt]);
+  }, [src]);
 
-  const fallbackUrl = getFoodFallbackUrl(alt);
+  if (!src) return null;
 
   if (loading) {
     return <div className={`bg-slate-200 animate-pulse ${className}`}></div>;
   }
 
-  return (
-    <img 
-      src={dataUrl || fallbackUrl} 
-      alt={alt || ''} 
-      className={className} 
-      onError={(e) => {
-        // If image fails to load, replace with smart food fallback
-        (e.target as HTMLImageElement).src = fallbackUrl;
-      }}
-    />
-  );
+  if (!dataUrl) {
+    if (isQuotaExceededGlobal) {
+      return (
+        <div className={`bg-amber-50 border border-amber-200 flex flex-col items-center justify-center text-amber-600 text-[10px] font-medium text-center p-2 ${className}`}>
+          <span className="font-bold text-xs mb-1">Limit Reached</span>
+          Image safely saved, but hidden until tomorrow
+        </div>
+      );
+    }
+    return <div className={`bg-slate-100 flex items-center justify-center text-slate-400 text-xs font-medium ${className}`}>No Image</div>;
+  }
+
+  return <img src={dataUrl} alt={alt || ''} className={className} />;
 }
 
