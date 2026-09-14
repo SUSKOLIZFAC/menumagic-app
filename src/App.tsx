@@ -10,8 +10,7 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   
-  const allowedEmails = ['ahmedbahloul230@gmail.com', 'ali@onemenu.app'];
-  if (!user || !user.email || !allowedEmails.includes(user.email.toLowerCase())) {
+  if (!user) {
     return <Navigate to="/login" />;
   }
   
