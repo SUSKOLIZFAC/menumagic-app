@@ -135,13 +135,12 @@ export function saveRestaurantAndMenuToCache(restaurant: any, menu: any) {
   }
 }
 
-export function getCachedRestaurantAndMenu(restaurantId?: string): { restaurant: any, menu: any } {
+export function getCachedRestaurantAndMenu(restaurantId?: string, returnFallback: boolean = true): { restaurant: any, menu: any } | null {
   try {
     // 1. Direct key lookup by ID or slug
     if (restaurantId) {
       const restStr = localStorage.getItem(`cached_restaurant_${restaurantId}`);
       const menuStr = localStorage.getItem(`cached_menu_${restaurantId}`);
-
       if (restStr && menuStr) {
         return { restaurant: JSON.parse(restStr), menu: JSON.parse(menuStr) };
       }
@@ -162,10 +161,9 @@ export function getCachedRestaurantAndMenu(restaurantId?: string): { restaurant:
       if (Array.isArray(rests) && rests.length > 0) {
         // match by restaurantId or slug
         let matched = restaurantId ? rests.find(r => r.id === restaurantId || r.slug === restaurantId) : null;
-        if (!matched && rests.length > 0) {
+        if (!matched && rests.length > 0 && returnFallback) {
           matched = rests[0]; // fallback to first restaurant in cache
         }
-
         if (matched) {
           const mStr = localStorage.getItem(`cached_menu_${matched.id}`) || localStorage.getItem(`cached_menu_${matched.slug}`);
           if (mStr) {
@@ -182,7 +180,7 @@ export function getCachedRestaurantAndMenu(restaurantId?: string): { restaurant:
 
     // 3. Try last saved menu
     const lastSavedStr = localStorage.getItem('cached_menu_last');
-    if (lastSavedStr) {
+    if (lastSavedStr && returnFallback) {
       const last = JSON.parse(lastSavedStr);
       if (last.restaurant && last.menu) {
         return { restaurant: last.restaurant, menu: last.menu };
@@ -193,8 +191,8 @@ export function getCachedRestaurantAndMenu(restaurantId?: string): { restaurant:
   }
 
   // 4. Default fallback
-  return {
+  return returnFallback ? {
     restaurant: DEFAULT_FALLBACK_RESTAURANT,
     menu: DEFAULT_FALLBACK_MENU
-  };
+  } : null;
 }

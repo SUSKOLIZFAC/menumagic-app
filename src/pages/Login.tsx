@@ -54,6 +54,10 @@ export default function Login() {
   };
 
   const handleGoogleLogin = async () => {
+    if (window !== window.parent) {
+      setError("Because this preview is embedded, Google blocks the sign-in popup. Please click the 'Open in New Tab' button (top right of this preview window) and try signing in there.");
+      return;
+    }
     try {
       await login();
       navigate('/admin');

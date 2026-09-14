@@ -9,9 +9,13 @@ import { getCachedRestaurantAndMenu, saveRestaurantAndMenuToCache } from '../uti
 
 export default function RestaurantMenu() {
   const { restaurantId } = useParams<{ restaurantId: string }>();
-  const [restaurant, setRestaurant] = useState<any>(null);
-  const [menu, setMenu] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  
+  // Synchronous cache lookup for instant load
+  const initialCache = getCachedRestaurantAndMenu(restaurantId, false);
+  const [restaurant, setRestaurant] = useState<any>(initialCache?.restaurant || null);
+  const [menu, setMenu] = useState<any>(initialCache?.menu || null);
+  const [loading, setLoading] = useState(!initialCache?.restaurant || !initialCache?.menu);
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const [showLangMenu, setShowLangMenu] = useState(false);
@@ -77,6 +81,14 @@ export default function RestaurantMenu() {
 
   useEffect(() => {
     if (restaurantId) {
+      const cache = getCachedRestaurantAndMenu(restaurantId, false);
+      if (cache?.restaurant && cache?.menu) {
+        setRestaurant(cache.restaurant);
+        setMenu(cache.menu);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
       fetchData();
     }
   }, [restaurantId]);
@@ -144,14 +156,29 @@ export default function RestaurantMenu() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-white text-slate-900">
-        <div className="relative flex items-center justify-center">
-          <div className="w-16 h-16 border-2 border-slate-100 border-t-[#D4A017] rounded-full animate-spin"></div>
-          <div className="absolute w-8 h-8 rounded-full bg-[#D4A017]/10 flex items-center justify-center">
-            <UtensilsCrossed className="w-4 h-4 text-[#D4A017]" />
-          </div>
+      <div className="min-h-screen bg-white pb-24">
+        {/* Cover Skeleton */}
+        <div className="w-full h-56 sm:h-72 md:h-80 bg-slate-100 animate-pulse" />
+        
+        <div className="max-w-2xl mx-auto px-5 pt-6 pb-6 relative z-10 -mt-6 bg-white rounded-t-3xl shadow-[0_-8px_30px_rgba(0,0,0,0.05)]">
+           <div className="w-48 h-8 bg-slate-200 animate-pulse rounded-lg mb-3" />
+           <div className="w-64 h-4 bg-slate-100 animate-pulse rounded mb-6" />
+           
+           {/* Categories Skeleton */}
+           <div className="flex gap-3 mb-8 overflow-hidden">
+              <div className="w-24 h-10 bg-slate-100 animate-pulse rounded-full shrink-0" />
+              <div className="w-28 h-10 bg-slate-100 animate-pulse rounded-full shrink-0" />
+              <div className="w-20 h-10 bg-slate-100 animate-pulse rounded-full shrink-0" />
+           </div>
+
+           {/* Items Skeleton */}
+           <div className="space-y-4">
+              <div className="w-full h-28 bg-slate-50 animate-pulse rounded-2xl" />
+              <div className="w-full h-28 bg-slate-50 animate-pulse rounded-2xl" />
+              <div className="w-full h-28 bg-slate-50 animate-pulse rounded-2xl" />
+              <div className="w-full h-28 bg-slate-50 animate-pulse rounded-2xl" />
+           </div>
         </div>
-        <p className="font-serif italic tracking-widest text-xs uppercase text-slate-400 mt-6">Crafting digital menu...</p>
       </div>
     );
   }
