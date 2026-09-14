@@ -60,7 +60,7 @@ export default function Login() {
     } catch (error: any) {
       if (error?.code !== 'auth/cancelled-popup-request') {
         console.error("Login failed", error);
-        setError('Google sign-in failed.');
+        setError(`Google sign-in failed: ${error.message || error.code || 'Unknown error'}`);
       }
     }
   };
