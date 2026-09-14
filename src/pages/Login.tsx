@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { QrCode, Mail, Lock, Loader2 } from 'lucide-react';
+import { getRedirectResult } from 'firebase/auth';
+import { auth } from '../firebase';
 
 export default function Login() {
   const { login, loginEmail, registerEmail, user } = useAuth();
@@ -12,11 +14,18 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (user) {
       navigate('/admin');
     }
   }, [user, navigate]);
+
+  useEffect(() => {
+    getRedirectResult(auth).catch((error: any) => {
+      console.error("Redirect login error:", error);
+      setError(`Google sign-in failed: ${error.message || error.code || 'Unknown error'}`);
+    });
+  }, []);
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
