@@ -1,11 +1,53 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Onemenu</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    
+    <!-- Primary SEO Meta Tags -->
+    <title>Onemenu — Modern Digital QR Menus for Restaurants & Cafes</title>
+    <meta name="title" content="Onemenu — Modern Digital QR Menus for Restaurants & Cafes" />
+    <meta name="description" content="Replace outdated paper menus with high-resolution digital QR menus. Update prices in real-time, increase average order value by 20%, and delight diners." />
+    <meta name="keywords" content="digital menu, QR code menu, restaurant menu QR, restaurant ordering, contactless dining, digital restaurant menu" />
+    <meta name="author" content="Onemenu" />
+    <meta name="theme-color" content="#0F172A" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Onemenu — Modern Digital QR Menus for Restaurants & Cafes" />
+    <meta property="og:description" content="Replace outdated paper menus with high-resolution digital QR menus. Update prices in real-time, increase order value by 20%, and delight diners." />
+    <meta property="og:site_name" content="Onemenu" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Onemenu — Modern Digital QR Menus for Restaurants & Cafes" />
+    <meta name="twitter:description" content="Replace outdated paper menus with high-resolution digital QR menus. Update prices in real-time and increase average spend." />
+
+    <!-- Google Fonts: Plus Jakarta Sans (Display/Body) & Playfair Display (Editorial Luxury) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400;1,600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+    <!-- Schema.org JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Onemenu",
+      "url": "https://onemenu.app",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "All",
+      "description": "A comprehensive digital restaurant menu platform to create contactless QR menus, update pricing in real-time, and boost order values.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    }
+    </script>
   </head>
-  <body>
+  <body class="bg-slate-50 text-slate-900 antialiased selection:bg-indigo-600 selection:text-white">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -3,9 +3,30 @@ import { useParams } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { doc, getDoc, query, collection, where, getDocs } from 'firebase/firestore';
 import { ImageDisplay } from '../components/ImageDisplay';
-import { UtensilsCrossed, Utensils, Search, X, Instagram, Phone, Globe, ChevronRight, Share2, Sparkles, MapPin } from 'lucide-react';
+import { 
+  UtensilsCrossed, 
+  Utensils, 
+  Search, 
+  X, 
+  Instagram, 
+  Phone, 
+  Globe, 
+  Share2, 
+  MapPin, 
+  Plus, 
+  Minus, 
+  ShoppingBag, 
+  Send,
+  MessageSquare
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getCachedRestaurantAndMenu, saveRestaurantAndMenuToCache } from '../utils/menuCache';
+import { BrandLogo } from '../components/BrandLogo';
+
+interface TrayItem {
+  dish: any;
+  quantity: number;
+}
 
 export default function RestaurantMenu() {
   const { restaurantId } = useParams<{ restaurantId: string }>();
@@ -22,10 +43,15 @@ export default function RestaurantMenu() {
   const [currentLang, setCurrentLang] = useState('en');
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
 
+  // Table Tray / Order Estimator State
+  const [tray, setTray] = useState<TrayItem[]>([]);
+  const [isTrayOpen, setIsTrayOpen] = useState(false);
+  const [tableNumber, setTableNumber] = useState('');
+
   const languages = [
     { code: 'en', label: 'English', flag: '🇬🇧' },
-    { code: 'es', label: 'Español', flag: '🇪🇸' },
     { code: 'fr', label: 'Français', flag: '🇫🇷' },
+    { code: 'es', label: 'Español', flag: '🇪🇸' },
     { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
   ];
 
@@ -131,7 +157,6 @@ export default function RestaurantMenu() {
           setActiveCategory('All');
         }
       } else {
-        // If Firestore had no data for this ID, check cache or default fallback
         const cached = getCachedRestaurantAndMenu(restaurantId);
         setRestaurant(cached.restaurant);
         setMenu(cached.menu);
@@ -154,48 +179,39 @@ export default function RestaurantMenu() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-white pb-24">
-        {/* Cover Skeleton */}
-        <div className="w-full h-56 sm:h-72 md:h-80 bg-slate-100 animate-pulse" />
-        
-        <div className="max-w-2xl mx-auto px-5 pt-6 pb-6 relative z-10 -mt-6 bg-white rounded-t-3xl shadow-[0_-8px_30px_rgba(0,0,0,0.05)]">
-           <div className="w-48 h-8 bg-slate-200 animate-pulse rounded-lg mb-3" />
-           <div className="w-64 h-4 bg-slate-100 animate-pulse rounded mb-6" />
-           
-           {/* Categories Skeleton */}
-           <div className="flex gap-3 mb-8 overflow-hidden">
-              <div className="w-24 h-10 bg-slate-100 animate-pulse rounded-full shrink-0" />
-              <div className="w-28 h-10 bg-slate-100 animate-pulse rounded-full shrink-0" />
-              <div className="w-20 h-10 bg-slate-100 animate-pulse rounded-full shrink-0" />
-           </div>
+  // Tray management
+  const addToTray = (dish: any, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setTray(prev => {
+      const existing = prev.find(item => item.dish.name === dish.name);
+      if (existing) {
+        return prev.map(item => 
+          item.dish.name === dish.name 
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      }
+      return [...prev, { dish, quantity: 1 }];
+    });
+  };
 
-           {/* Items Skeleton */}
-           <div className="space-y-4">
-              <div className="w-full h-28 bg-slate-50 animate-pulse rounded-2xl" />
-              <div className="w-full h-28 bg-slate-50 animate-pulse rounded-2xl" />
-              <div className="w-full h-28 bg-slate-50 animate-pulse rounded-2xl" />
-              <div className="w-full h-28 bg-slate-50 animate-pulse rounded-2xl" />
-           </div>
-        </div>
-      </div>
-    );
-  }
+  const removeFromTray = (dishName: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setTray(prev => {
+      const existing = prev.find(item => item.dish.name === dishName);
+      if (existing && existing.quantity > 1) {
+        return prev.map(item => 
+          item.dish.name === dishName 
+            ? { ...item, quantity: item.quantity - 1 }
+            : item
+        );
+      }
+      return prev.filter(item => item.dish.name !== dishName);
+    });
+  };
 
-  if (!menu || !restaurant) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-white p-6 text-center text-slate-900">
-        <div className="w-20 h-20 bg-[#F8F8F8] rounded-full flex items-center justify-center mb-6 text-slate-400">
-          <UtensilsCrossed className="w-8 h-8" strokeWidth={1.5} />
-        </div>
-        <h1 className="text-2xl font-serif font-bold tracking-tight mb-2 text-slate-900">Menu Unavailable</h1>
-        <p className="text-slate-500 max-w-sm text-sm leading-relaxed mb-6">
-          This restaurant is currently updating their culinary offering. Please check back in a few moments.
-        </p>
-      </div>
-    );
-  }
+  const totalTrayItems = tray.reduce((sum, item) => sum + item.quantity, 0);
+  const totalTrayPrice = tray.reduce((sum, item) => sum + ((item.dish.price || 0) * item.quantity), 0);
 
   const normalizeStr = (str: string) => {
     return (str || '')
@@ -243,58 +259,102 @@ export default function RestaurantMenu() {
         ? filteredCategories 
         : filteredCategories.filter((c: any) => c.name === activeCategory));
 
-  const rawWhatsapp = restaurant.whatsappNumber || restaurant.whatsapp || restaurant.phoneNumber || restaurant.phone || '';
+  const rawWhatsapp = restaurant?.whatsappNumber || restaurant?.whatsapp || restaurant?.phoneNumber || restaurant?.phone || '';
   const cleanWhatsapp = rawWhatsapp.replace(/[^0-9]/g, '');
   const whatsappLink = cleanWhatsapp 
-    ? `https://wa.me/${cleanWhatsapp}?text=${encodeURIComponent(`Hello ${restaurant.name}! I am viewing your menu and would like to contact you.`)}`
+    ? `https://wa.me/${cleanWhatsapp}?text=${encodeURIComponent(`Hello ${restaurant?.name || 'there'}! I am viewing your menu.`)}`
     : null;
 
   const defaultCoverUrl = "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1600&q=80";
-  const coverImage = restaurant.coverImageUrl || defaultCoverUrl;
+  const coverImage = restaurant?.coverImageUrl || defaultCoverUrl;
+
+  const handleSendTrayOrderWhatsApp = () => {
+    if (!cleanWhatsapp || tray.length === 0) return;
+    const itemsList = tray.map(item => `• ${item.quantity}x ${item.dish.name} (${(item.dish.price * item.quantity).toFixed(2)} DH)`).join('\n');
+    const tableInfo = tableNumber ? `Table: ${tableNumber}\n` : '';
+    const message = `Hello ${restaurant?.name || 'Restaurant'}!\n\nI would like to place an order from my digital menu:\n${tableInfo}\n${itemsList}\n\nTotal: ${totalTrayPrice.toFixed(2)} DH`;
+    window.open(`https://wa.me/${cleanWhatsapp}?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 pb-24">
+        <div className="w-full h-56 sm:h-72 bg-slate-200 animate-pulse" />
+        <div className="max-w-3xl mx-auto px-4 -mt-12">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">
+            <div className="w-48 h-7 bg-slate-200 rounded-md animate-pulse" />
+            <div className="w-72 h-4 bg-slate-100 rounded-md animate-pulse" />
+            <div className="flex gap-2 pt-2">
+              <div className="w-20 h-8 bg-slate-100 rounded-lg animate-pulse" />
+              <div className="w-24 h-8 bg-slate-100 rounded-lg animate-pulse" />
+              <div className="w-20 h-8 bg-slate-100 rounded-lg animate-pulse" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!menu || !restaurant) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-6 text-center text-slate-900">
+        <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4 text-slate-400">
+          <UtensilsCrossed className="w-8 h-8" />
+        </div>
+        <h1 className="text-xl font-bold tracking-tight mb-2 text-slate-900">Menu Currently Offline</h1>
+        <p className="text-slate-500 max-w-sm text-sm leading-relaxed mb-6">
+          This restaurant is currently refreshing their digital offerings. Please check back shortly.
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-white text-[#1F2937] font-sans antialiased selection:bg-[#D4A017]/20 selection:text-[#1F2937] pb-24">
-      <div id="google_translate_element" className="opacity-0 absolute pointer-events-none"></div>
+    <div className="min-h-screen bg-slate-50/60 text-slate-900 font-sans selection:bg-slate-900 selection:text-white pb-32">
+      <div id="google_translate_element" className="opacity-0 absolute pointer-events-none" aria-hidden="true" />
 
-      {/* Hero Cover Header */}
-      <div className="relative w-full h-56 sm:h-72 md:h-80 overflow-hidden bg-slate-100">
+      {/* TOP HEADER COVER WITH MEASURED SCRIM */}
+      <div className="relative w-full h-52 sm:h-72 overflow-hidden bg-slate-900">
         <ImageDisplay 
           src={coverImage} 
           alt={restaurant.name} 
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover opacity-90"
         />
-        {/* Soft natural top bar overlay for UI contrast */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/10 pointer-events-none" />
+        {/* Measured dark gradient scrim for 4.5:1 text contrast */}
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/30 to-black/30 pointer-events-none" />
 
-        {/* Floating Language Switcher */}
+        {/* Floating Language Dropdown */}
         <div className="absolute top-4 right-4 z-40">
           <div className="relative">
             <button
+              type="button"
               onClick={() => setShowLangMenu(!showLangMenu)}
-              className="flex items-center gap-2 px-3.5 py-1.5 bg-white/90 backdrop-blur-md border border-white/60 rounded-full shadow-md text-xs font-bold text-slate-800 hover:bg-white transition-all active:scale-95"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900/80 backdrop-blur-md border border-white/20 rounded-lg text-xs font-semibold text-white hover:bg-slate-900 transition-colors shadow-xs"
+              aria-label="Change menu language"
             >
-              <Globe className="w-3.5 h-3.5 text-[#D4A017]" />
+              <Globe className="w-3.5 h-3.5 text-slate-300" />
               <span className="uppercase tracking-wider">{currentLang}</span>
             </button>
 
             <AnimatePresence>
               {showLangMenu && (
                 <motion.div 
-                  initial={{ opacity: 0, y: -8 }}
+                  initial={{ opacity: 0, y: -6 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  className="absolute right-0 mt-2 w-40 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden py-1 z-50"
+                  exit={{ opacity: 0, y: -6 }}
+                  className="absolute right-0 mt-2 w-36 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden py-1 z-50"
                 >
-                  {languages.map((lang) => (
+                  {languages.map((l) => (
                     <button
-                      key={lang.code}
-                      onClick={() => changeLanguage(lang.code)}
-                      className={`w-full text-left px-4 py-2.5 text-xs flex items-center gap-2.5 hover:bg-slate-50 transition-colors ${
-                        currentLang === lang.code ? 'text-[#D4A017] font-bold bg-[#D4A017]/10' : 'text-slate-700 font-medium'
+                      key={l.code}
+                      type="button"
+                      onClick={() => changeLanguage(l.code)}
+                      className={`w-full text-left px-3.5 py-2 text-xs flex items-center gap-2 hover:bg-slate-50 transition-colors ${
+                        currentLang === l.code ? 'font-bold text-slate-900 bg-slate-50' : 'text-slate-600'
                       }`}
                     >
-                      <span className="text-base">{lang.flag}</span>
-                      {lang.label}
+                      <span>{l.flag}</span>
+                      <span>{l.label}</span>
                     </button>
                   ))}
                 </motion.div>
@@ -304,58 +364,62 @@ export default function RestaurantMenu() {
         </div>
       </div>
 
-      {/* Floating White Information Card */}
-      <div className="relative z-20 max-w-3xl mx-auto px-4 -mt-16 sm:-mt-20 mb-6">
-        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.06)] border border-[#ECECEC] text-center flex flex-col items-center relative">
+      {/* RESTAURANT IDENTITY CARD */}
+      <div className="relative z-20 max-w-3xl mx-auto px-4 -mt-14 mb-6">
+        <div className="bg-white rounded-2xl p-6 sm:p-7 shadow-sm border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
           
-          {/* Restaurant Logo / Avatar Badge */}
-          {restaurant.imageUrl ? (
-            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border-4 border-white shadow-lg -mt-16 sm:-mt-20 mb-3.5 overflow-hidden bg-white shrink-0 relative">
-              <ImageDisplay 
-                src={restaurant.imageUrl} 
-                alt={restaurant.name} 
-                className="w-full h-full object-cover"
-              />
+          <div className="flex items-center gap-4">
+            {restaurant.imageUrl ? (
+              <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-xl border border-slate-200 overflow-hidden bg-slate-50 shrink-0 shadow-xs">
+                <ImageDisplay 
+                  src={restaurant.imageUrl} 
+                  alt={restaurant.name} 
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="w-16 h-16 rounded-xl border border-slate-200 bg-slate-900 text-white flex items-center justify-center shrink-0">
+                <Utensils className="w-7 h-7 text-amber-500" />
+              </div>
+            )}
+
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-serif font-bold text-slate-900 tracking-tight">
+                {restaurant.name}
+              </h1>
+              
+              {(restaurant.address || restaurant.location) && (
+                <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
+                  <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span className="truncate max-w-xs">{restaurant.address || restaurant.location}</span>
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-4 border-white shadow-md -mt-14 sm:-mt-18 mb-3.5 bg-slate-900 text-[#D4A017] flex items-center justify-center shrink-0">
-              <Utensils className="w-8 h-8" />
-            </div>
-          )}
+          </div>
 
-          {/* Restaurant Title (Reduced size by 15-20%) */}
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-serif font-bold text-[#1F2937] tracking-tight mb-2">
-            {restaurant.name}
-          </h1>
-
-          {/* Description (Only shown if explicitly provided) */}
-          {restaurant.description && restaurant.description.trim().length > 0 && (
-            <p className="text-slate-500 text-xs sm:text-sm font-normal max-w-lg leading-relaxed mb-5">
-              {restaurant.description}
-            </p>
-          )}
-
-          {/* Restaurant Contact Actions (Uniform mini circular icon buttons) */}
-          <div className="flex items-center justify-center gap-3">
+          {/* Quick Contact Icons */}
+          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
             {whatsappLink && (
               <a 
                 href={whatsappLink} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="w-11 h-11 flex items-center justify-center rounded-full bg-[#25D366] hover:bg-[#20bd5a] text-white transition-all shadow-md shadow-[#25D366]/20 hover:-translate-y-0.5 active:scale-95 shrink-0"
-                title="WhatsApp"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200/80 text-xs font-semibold hover:bg-emerald-100 transition-colors"
+                title="Message on WhatsApp"
               >
-                <WhatsAppIcon className="w-5 h-5 fill-white" />
+                <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                <span>WhatsApp</span>
               </a>
             )}
 
             {restaurant.phoneNumber && (
               <a 
                 href={`tel:${restaurant.phoneNumber}`} 
-                className="w-11 h-11 flex items-center justify-center rounded-full bg-[#F8F8F8] hover:bg-slate-200/80 text-slate-700 transition-colors border border-slate-200/70 shrink-0"
+                className="p-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
                 title={`Call ${restaurant.phoneNumber}`}
+                aria-label="Call restaurant"
               >
-                <Phone className="w-5 h-5 text-slate-600" />
+                <Phone className="w-4 h-4" />
               </a>
             )}
 
@@ -364,49 +428,54 @@ export default function RestaurantMenu() {
                 href={restaurant.instagramUrl} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="w-11 h-11 flex items-center justify-center rounded-full bg-[#F8F8F8] text-slate-600 hover:text-pink-600 hover:bg-pink-50 transition-colors border border-slate-200/70 shrink-0"
+                className="p-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
                 title="Instagram"
+                aria-label="Instagram profile"
               >
-                <Instagram className="w-5 h-5" />
+                <Instagram className="w-4 h-4" />
               </a>
             )}
           </div>
+
         </div>
       </div>
 
-      {/* Sticky Navigation & Search */}
-      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md py-3.5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border-b border-[#ECECEC] transition-all">
-        <div className="max-w-3xl mx-auto px-4">
+      {/* STICKY SEARCH & CATEGORY BAR */}
+      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-xs">
+        <div className="max-w-3xl mx-auto px-4 py-3">
           
-          {/* Search Field (High contrast placeholder text) */}
-          <div className="relative mb-3">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-500 pointer-events-none" />
+          {/* Live Search Input */}
+          <div className="relative mb-2.5">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             <input
               type="text"
-              placeholder="Search dishes, drinks, desserts..."
+              placeholder="Search dishes, drinks, ingredients..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#F8F8F8] border border-slate-200/80 rounded-full py-3 pl-11 pr-10 text-[#1F2937] placeholder:text-slate-500 font-medium text-sm focus:outline-none focus:bg-white focus:border-[#D4A017] focus:ring-2 focus:ring-[#D4A017]/20 transition-all shadow-inner/none"
+              className="w-full bg-slate-100/80 border border-slate-200/80 rounded-xl py-2 pl-9.5 pr-8 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-slate-900 transition-colors"
             />
             {searchQuery && (
               <button 
+                type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-slate-900 transition-colors bg-slate-200/60 rounded-full"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700"
+                aria-label="Clear search"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
 
-          {/* Category Tabs */}
+          {/* Clean Segmented Category Tabs */}
           {!searchQuery && menu?.categories?.length > 0 && (
-            <div className="flex overflow-x-auto hide-scrollbar gap-2 py-1 snap-x">
+            <div className="flex overflow-x-auto gap-1.5 py-0.5 no-scrollbar">
               <button
+                type="button"
                 onClick={() => setActiveCategory('All')}
-                className={`snap-start whitespace-nowrap px-4 py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-300 ${
+                className={`whitespace-nowrap px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 ${
                   activeCategory === 'All' 
-                    ? 'bg-[#D4A017] text-white shadow-md shadow-[#D4A017]/20 scale-[1.02]' 
-                    : 'bg-[#F8F8F8] text-slate-600 border border-slate-200/60 hover:bg-slate-100'
+                    ? 'bg-slate-900 text-white shadow-xs' 
+                    : 'text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/70'
                 }`}
               >
                 All Items
@@ -414,11 +483,12 @@ export default function RestaurantMenu() {
               {menu.categories.map((cat: any, idx: number) => (
                 <button
                   key={idx}
+                  type="button"
                   onClick={() => setActiveCategory(cat.name)}
-                  className={`snap-start whitespace-nowrap px-4 py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-300 ${
+                  className={`whitespace-nowrap px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 ${
                     activeCategory === cat.name 
-                      ? 'bg-[#D4A017] text-white shadow-md shadow-[#D4A017]/20 scale-[1.02]' 
-                      : 'bg-[#F8F8F8] text-slate-600 border border-slate-200/60 hover:bg-slate-100'
+                      ? 'bg-slate-900 text-white shadow-xs' 
+                      : 'text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/70'
                   }`}
                 >
                   {cat.name}
@@ -429,124 +499,273 @@ export default function RestaurantMenu() {
         </div>
       </div>
 
-      {/* Main Menu Content */}
+      {/* DISHES LIST */}
       <main className="max-w-3xl mx-auto px-4 pt-6">
         {displayCategories.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-3xl border border-[#ECECEC] p-8 shadow-sm">
-            <div className="w-12 h-12 bg-[#F8F8F8] rounded-full flex items-center justify-center mx-auto mb-3 text-slate-400">
-              <Search className="w-6 h-6" />
-            </div>
-            <p className="text-base font-bold text-[#1F2937] mb-1">No items found</p>
-            <p className="text-xs text-slate-500 mb-5">We couldn't find any dishes matching "{searchQuery}"</p>
+          <div className="text-center py-16 bg-white rounded-2xl border border-slate-200 p-8 shadow-xs">
+            <Search className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+            <p className="text-sm font-bold text-slate-900 mb-1">No items match your search</p>
+            <p className="text-xs text-slate-500 mb-4">Try searching for a different dish name or category</p>
             <button
+              type="button"
               onClick={() => setSearchQuery('')}
-              className="px-5 py-2 bg-[#1F2937] text-white rounded-full text-xs font-semibold hover:bg-[#D4A017] transition-colors shadow-sm"
+              className="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition-colors"
             >
               Reset Search
             </button>
           </div>
         ) : (
-          <div className="space-y-10">
+          <div className="space-y-8">
             {displayCategories.map((category: any, idx: number) => (
-              <section key={idx} className="scroll-mt-36">
+              <section key={idx} className="space-y-3">
                 
-                {/* Category Header (Increased height ~15%, elegant white badge without dark overlays) */}
-                {!searchQuery && category.imageUrl ? (
-                  <div className="relative w-full h-44 sm:h-56 rounded-2xl sm:rounded-3xl overflow-hidden mb-5 shadow-sm border border-[#ECECEC]">
-                    <ImageDisplay 
-                      src={category.imageUrl} 
-                      alt={category.name} 
-                      className="w-full h-full object-cover"
-                    />
-                    {/* Floating White Title Label Card */}
-                    <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/80 shadow-md flex items-center gap-2.5">
-                      <h2 className="text-base sm:text-lg font-serif font-bold text-[#1F2937] tracking-tight">{category.name}</h2>
-                      <span className="text-[11px] font-semibold text-slate-500 bg-[#F8F8F8] px-2.5 py-0.5 rounded-full border border-slate-200/60">{category.items?.length || 0} items</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2.5 mb-4 pb-2 border-b border-[#ECECEC]">
-                    <div className="w-1.5 h-5 bg-[#D4A017] rounded-full" />
-                    <h2 className="text-lg sm:text-xl font-serif font-bold text-[#1F2937] tracking-tight">
-                      {category.name}
-                    </h2>
-                    <span className="text-xs text-slate-500 font-normal ml-auto">({category.items?.length})</span>
-                  </div>
-                )}
-                
+                {/* Category Header (Unboxed, clean) */}
+                <div className="flex items-baseline justify-between border-b border-slate-200/80 pb-2">
+                  <h2 className="text-lg font-serif font-bold text-slate-900 tracking-tight">
+                    {category.name}
+                  </h2>
+                  <span className="font-mono text-xs text-slate-500 tabular-nums">
+                    {category.items?.length || 0} items
+                  </span>
+                </div>
+
                 {/* Items Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
-                  {category.items.map((item: any, i: number) => (
-                    <motion.div 
-                      key={i} 
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.25, delay: Math.min(i * 0.04, 0.2) }}
-                      onClick={() => setSelectedItem(item)}
-                      className="group bg-white border border-[#ECECEC] rounded-2xl p-4 shadow-[0_2px_15px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_25px_rgba(0,0,0,0.06)] hover:border-[#D4A017]/40 transition-all duration-300 flex flex-row items-stretch justify-between gap-4 cursor-pointer relative overflow-hidden"
-                    >
-                      {/* Left Info Column */}
-                      <div className="flex-1 flex flex-col justify-between py-0.5">
-                        <div>
-                          <h3 className="text-sm sm:text-base font-bold text-[#1F2937] leading-snug group-hover:text-[#D4A017] transition-colors mb-1.5">
+                <div className="grid sm:grid-cols-2 gap-3.5">
+                  {category.items.map((item: any, i: number) => {
+                    const itemInTray = tray.find(t => t.dish.name === item.name);
+                    const qtyInTray = itemInTray ? itemInTray.quantity : 0;
+
+                    return (
+                      <div
+                        key={i}
+                        onClick={() => setSelectedItem(item)}
+                        className="group bg-white rounded-xl p-4 border border-slate-200 hover:border-slate-300 transition-all shadow-xs flex items-start justify-between gap-3 cursor-pointer relative"
+                      >
+                        <div className="flex-1 min-w-0 pr-1">
+                          <h3 className="text-sm font-bold text-slate-900 leading-snug group-hover:text-slate-700 transition-colors mb-1">
                             {item.name}
                           </h3>
                           
                           {item.description && (
-                            <p className="text-slate-500 font-normal text-xs leading-relaxed line-clamp-2 mb-3">
+                            <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed mb-3">
                               {item.description}
                             </p>
                           )}
-                        </div>
-                        
-                        {/* Prominent Price Tag */}
-                        <div className="mt-auto flex items-baseline gap-1">
-                          <span className="text-[#D4A017] font-extrabold text-lg sm:text-xl">
-                            {(item.price || 0).toFixed(2)}
-                          </span>
-                          <span className="text-slate-400 text-xs font-bold uppercase">DH</span>
-                        </div>
-                      </div>
 
-                      {/* Right Image Thumbnail */}
-                      {item.imageUrl && (
-                        <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl sm:rounded-2xl overflow-hidden bg-[#F8F8F8] shrink-0 shadow-sm border border-slate-100">
-                          <ImageDisplay 
-                            src={item.imageUrl} 
-                            alt={item.name} 
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
-                          />
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="font-mono tabular-nums text-sm font-bold text-slate-900">
+                              {(item.price || 0).toFixed(2)} DH
+                            </span>
+
+                            {/* Add to Tray Quick Action */}
+                            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                              {qtyInTray > 0 ? (
+                                <div className="inline-flex items-center gap-2 bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => removeFromTray(item.name, e)}
+                                    className="w-6 h-6 rounded flex items-center justify-center text-slate-600 hover:bg-white transition-colors"
+                                    aria-label="Decrease quantity"
+                                  >
+                                    <Minus className="w-3.5 h-3.5" />
+                                  </button>
+                                  <span className="font-mono text-xs font-bold text-slate-900 tabular-nums px-1">
+                                    {qtyInTray}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => addToTray(item, e)}
+                                    className="w-6 h-6 rounded flex items-center justify-center text-slate-600 hover:bg-white transition-colors"
+                                    aria-label="Increase quantity"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(e) => addToTray(item, e)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold hover:bg-slate-900 hover:text-white transition-colors"
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                  <span>Add</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      )}
-                    </motion.div>
-                  ))}
+
+                        {/* Dish Photo */}
+                        {item.imageUrl && (
+                          <div className="w-20 h-20 rounded-lg overflow-hidden bg-slate-100 shrink-0 border border-slate-100">
+                            <ImageDisplay 
+                              src={item.imageUrl} 
+                              alt={item.name} 
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
+
               </section>
             ))}
           </div>
         )}
       </main>
 
-      {/* Item Detail Modal */}
+      {/* FLOATING TABLE TRAY / ORDER ESTIMATOR STATUS */}
+      {totalTrayItems > 0 && (
+        <div className="fixed bottom-6 inset-x-4 max-w-lg mx-auto z-40">
+          <div className="bg-slate-900 text-white rounded-2xl p-4 shadow-xl border border-slate-800 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center shrink-0">
+                <ShoppingBag className="w-5 h-5 text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 font-medium">Table Selection</p>
+                <p className="text-sm font-mono tabular-nums font-bold text-white">
+                  {totalTrayItems} {totalTrayItems === 1 ? 'item' : 'items'} · {totalTrayPrice.toFixed(2)} DH
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsTrayOpen(true)}
+              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl transition-colors shadow-xs"
+            >
+              Review Table Tray
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* TABLE TRAY MODAL */}
+      <AnimatePresence>
+        {isTrayOpen && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, y: 100 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 100 }}
+              className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl border border-slate-200 max-h-[85vh] flex flex-col"
+            >
+              <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h3 className="font-serif font-bold text-lg text-slate-900">Your Table Tray</h3>
+                  <p className="text-xs text-slate-500">Review selected dishes before placing your order</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsTrayOpen(false)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700"
+                  aria-label="Close tray"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-5 overflow-y-auto flex-1 space-y-3">
+                {tray.map((item, idx) => (
+                  <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-slate-900 truncate">{item.dish.name}</p>
+                      <p className="font-mono text-xs text-slate-500 tabular-nums">
+                        {(item.dish.price || 0).toFixed(2)} DH each
+                      </p>
+                    </div>
+
+                    <div className="inline-flex items-center gap-2 bg-white rounded-lg p-0.5 border border-slate-200">
+                      <button
+                        type="button"
+                        onClick={() => removeFromTray(item.dish.name)}
+                        className="w-6 h-6 rounded flex items-center justify-center text-slate-600 hover:bg-slate-100"
+                      >
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <span className="font-mono text-xs font-bold text-slate-900 tabular-nums px-1">
+                        {item.quantity}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => addToTray(item.dish)}
+                        className="w-6 h-6 rounded flex items-center justify-center text-slate-600 hover:bg-slate-100"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+
+                    <div className="font-mono text-xs font-bold text-slate-900 tabular-nums text-right w-16">
+                      {((item.dish.price || 0) * item.quantity).toFixed(2)} DH
+                    </div>
+                  </div>
+                ))}
+
+                {/* Table Number Prompt */}
+                <div className="pt-2">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Table Number (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Table 4"
+                    value={tableNumber}
+                    onChange={(e) => setTableNumber(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:border-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div className="p-5 border-t border-slate-100 bg-slate-50 space-y-3">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm font-semibold text-slate-600">Estimated Total</span>
+                  <span className="font-mono text-xl font-bold text-slate-900 tabular-nums">
+                    {totalTrayPrice.toFixed(2)} DH
+                  </span>
+                </div>
+
+                {cleanWhatsapp ? (
+                  <button
+                    type="button"
+                    onClick={handleSendTrayOrderWhatsApp}
+                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-xs"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    <span>Send Order via WhatsApp</span>
+                  </button>
+                ) : (
+                  <p className="text-[11px] text-slate-500 text-center">
+                    Show this summary to your server at the table.
+                  </p>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* DISH DETAIL MODAL */}
       <AnimatePresence>
         {selectedItem && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
             <motion.div 
               initial={{ opacity: 0, y: 100 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 100 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl border border-slate-100 max-h-[85vh] flex flex-col relative"
+              className="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl border border-slate-200 max-h-[85vh] flex flex-col relative"
             >
-              {/* Close Button */}
               <button 
+                type="button"
                 onClick={() => setSelectedItem(null)}
-                className="absolute top-3 right-3 z-20 p-2 bg-white/80 backdrop-blur-md rounded-full shadow-md text-slate-700 hover:text-slate-900 transition-colors"
+                className="absolute top-3 right-3 z-20 p-2 bg-white/90 backdrop-blur-md rounded-full shadow-xs text-slate-700 hover:text-slate-900"
+                aria-label="Close dish preview"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
 
-              {/* Image Header */}
               {selectedItem.imageUrl && (
                 <div className="w-full h-56 sm:h-64 relative bg-slate-100 shrink-0">
                   <ImageDisplay 
@@ -557,128 +776,64 @@ export default function RestaurantMenu() {
                 </div>
               )}
 
-              {/* Modal Body */}
               <div className="p-6 overflow-y-auto flex-1">
                 <div className="flex items-start justify-between gap-4 mb-3">
-                  <h3 className="text-xl sm:text-2xl font-serif font-bold text-[#1F2937]">
+                  <h3 className="text-xl font-serif font-bold text-slate-900">
                     {selectedItem.name}
                   </h3>
-                  <div className="text-right shrink-0">
-                    <span className="text-2xl font-extrabold text-[#D4A017]">
-                      {(selectedItem.price || 0).toFixed(2)}
-                    </span>
-                    <span className="text-xs font-bold text-slate-400 ml-1">DH</span>
+                  <div className="font-mono text-xl font-bold text-slate-900 tabular-nums shrink-0">
+                    {(selectedItem.price || 0).toFixed(2)} DH
                   </div>
                 </div>
 
-                {selectedItem.description ? (
+                {selectedItem.description && (
                   <p className="text-slate-600 text-sm leading-relaxed mb-6">
                     {selectedItem.description}
                   </p>
-                ) : (
-                  <p className="text-slate-400 italic text-xs mb-6">No additional description available.</p>
                 )}
 
-                {/* Quick Inquiry via WhatsApp */}
-                {whatsappLink && (
-                  <a
-                    href={`https://wa.me/${cleanWhatsapp}?text=${encodeURIComponent(`Hello ${restaurant.name}! I would like to inquire about ordering "${selectedItem.name}".`)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full h-12 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-full font-bold text-sm flex items-center justify-center gap-2 shadow-md shadow-[#25D366]/20 transition-all active:scale-95"
+                <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      addToTray(selectedItem);
+                      setSelectedItem(null);
+                    }}
+                    className="flex-1 py-3 bg-slate-900 text-white rounded-xl text-xs font-semibold hover:bg-slate-800 transition-colors flex items-center justify-center gap-1.5"
                   >
-                    <WhatsAppIcon className="w-5 h-5 fill-white" />
-                    <span>Inquire via WhatsApp</span>
-                  </a>
-                )}
+                    <Plus className="w-4 h-4" />
+                    <span>Add to Table Tray</span>
+                  </button>
+
+                  {cleanWhatsapp && (
+                    <a
+                      href={`https://wa.me/${cleanWhatsapp}?text=${encodeURIComponent(`Hello ${restaurant.name}! I would like to inquire about "${selectedItem.name}".`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold hover:bg-emerald-100 transition-colors flex items-center gap-1.5"
+                    >
+                      <MessageSquare className="w-4 h-4 text-emerald-600" />
+                      <span>Inquire</span>
+                    </a>
+                  )}
+                </div>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
-      
-      {/* Clean Footer (Address, Phone, WhatsApp, Social Links & Branding) */}
-      <footer className="mt-20 pt-10 pb-12 bg-[#F8F8F8] border-t border-[#ECECEC] text-center">
-        <div className="max-w-3xl mx-auto px-4 flex flex-col items-center gap-6">
-          
-          {/* Restaurant Title & Address */}
-          <div className="space-y-1.5">
-            <h3 className="font-serif font-bold text-xl text-[#1F2937]">{restaurant.name}</h3>
-            {(restaurant.address || restaurant.location) && (
-              <div className="inline-flex items-center gap-1.5 text-xs text-slate-500">
-                <MapPin className="w-3.5 h-3.5 text-[#D4A017]" />
-                <span>{restaurant.address || restaurant.location}</span>
-              </div>
-            )}
+
+      {/* QUIET FOOTER */}
+      <footer className="mt-20 pt-10 pb-12 bg-white border-t border-slate-200/80 text-center text-xs text-slate-500">
+        <div className="max-w-3xl mx-auto px-4 flex flex-col items-center gap-3">
+          <p className="font-serif font-bold text-slate-900 text-sm">{restaurant.name}</p>
+          <div className="flex items-center gap-2 text-slate-400">
+            <span className="text-[11px] font-medium text-slate-400">Digital menu powered by</span>
+            <BrandLogo size="sm" />
           </div>
-
-          {/* Contact Row */}
-          <div className="flex flex-wrap items-center justify-center gap-3 text-xs font-semibold text-slate-600">
-            {restaurant.phoneNumber && (
-              <a 
-                href={`tel:${restaurant.phoneNumber}`} 
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-full border border-slate-200/80 hover:text-[#D4A017] transition-colors"
-              >
-                <Phone className="w-3.5 h-3.5 text-slate-500" />
-                <span>{restaurant.phoneNumber}</span>
-              </a>
-            )}
-
-            {whatsappLink && (
-              <a 
-                href={whatsappLink} 
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-full border border-slate-200/80 hover:text-[#25D366] transition-colors"
-              >
-                <WhatsAppIcon className="w-3.5 h-3.5 fill-[#25D366]" />
-                <span>WhatsApp</span>
-              </a>
-            )}
-
-            {restaurant.instagramUrl && (
-              <a 
-                href={restaurant.instagramUrl} 
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-full border border-slate-200/80 hover:text-pink-600 transition-colors"
-              >
-                <Instagram className="w-3.5 h-3.5 text-pink-600" />
-                <span>Instagram</span>
-              </a>
-            )}
-          </div>
-
-          {/* Onemenu Branding Badge */}
-          <div className="pt-2">
-            <div className="inline-flex items-center justify-center gap-2 px-4 py-2 border border-slate-200/80 rounded-full bg-white shadow-xs">
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Digital Menu By</span>
-              <span className="font-serif text-[#1F2937] tracking-wide font-bold text-xs">Onemenu.</span>
-            </div>
-          </div>
-
         </div>
       </footer>
 
-      <style dangerouslySetInnerHTML={{__html: `
-        .hide-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .hide-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}} />
     </div>
   );
 }
-
-function WhatsAppIcon({ className = "w-5 h-5" }: { className?: string }) {
-  return (
-    <svg className={className} fill="currentColor" viewBox="0 0 24 24">
-      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414-.074-.124-.272-.198-.57-.347z"/>
-      <path d="M12 0C5.373 0 0 5.373 0 12c0 2.119.554 4.108 1.523 5.833L0 24l6.342-1.498A11.95 11.95 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.848 0-3.585-.49-5.091-1.344l-.365-.207-3.774.891.916-3.684-.235-.383A9.958 9.958 0 0 1 2 12c0-5.514 4.486-10 10-10s10 4.486 10 10-4.486 10-10 10z"/>
-    </svg>
-  );
-}
-

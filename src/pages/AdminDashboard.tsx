@@ -7,6 +7,7 @@ import { digitizeMenuImage, semanticMatchMenuWithLibrary, generateFoodMetadata, 
 import { QRCodeSVG } from 'qrcode.react';
 import { Plus, Upload, QrCode, LogOut, Loader2, Edit2, X, Utensils, Image as ImageIcon, ChevronRight, Store, ExternalLink, Trash2, Search, Users, Mail, Phone, Menu as MenuIcon, Sparkles, Tag, Check, RefreshCw, AlertCircle, Wand2, Filter, Printer } from 'lucide-react';
 import { getCachedRestaurantAndMenu, saveRestaurantAndMenuToCache, DEFAULT_FALLBACK_RESTAURANT, DEFAULT_FALLBACK_MENU } from '../utils/menuCache';
+import { BrandLogo } from '../components/BrandLogo';
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
@@ -1701,114 +1702,108 @@ export default function AdminDashboard() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-slate-900 selection:bg-indigo-500/30">
+    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-slate-900 selection:bg-slate-900 selection:text-white">
       {/* Mobile Header */}
       <div className="md:hidden bg-white border-b border-slate-200 p-4 flex items-center justify-between z-30 sticky top-0">
-        <div className="flex items-center gap-2 text-slate-900 font-extrabold text-xl tracking-tight">
-          <div className="bg-indigo-600 p-1.5 rounded-lg shadow-sm">
-            <QrCode className="w-5 h-5 text-white" />
-          </div>
-          <span>Onemenu<span className="text-indigo-600">.</span></span>
-        </div>
+        <BrandLogo size="md" />
         <button 
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+          aria-label="Toggle navigation menu"
         >
-          {isMobileMenuOpen ? <X className="w-6 h-6" /> : <MenuIcon className="w-6 h-6" />}
+          {isMobileMenuOpen ? <X className="w-5 h-5" /> : <MenuIcon className="w-5 h-5" />}
         </button>
       </div>
 
       {/* Sidebar */}
-      <aside className={`${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex w-full md:w-72 bg-white border-b md:border-r md:border-b-0 border-slate-200 flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20 md:sticky md:top-0 md:h-screen overflow-y-auto`}>
-        <div className="hidden md:flex p-6 border-b border-slate-100 items-center gap-3 text-slate-900 font-extrabold text-2xl tracking-tight">
-          <div className="bg-indigo-600 p-2 rounded-xl shadow-sm">
-            <QrCode className="w-6 h-6 text-white" />
-          </div>
-          <span>Onemenu<span className="text-indigo-600">.</span></span>
+      <aside className={`${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex w-full md:w-68 bg-white border-b md:border-r md:border-b-0 border-slate-200 flex-col z-20 md:sticky md:top-0 md:h-screen overflow-y-auto`}>
+        <div className="hidden md:flex p-6 border-b border-slate-100 items-center">
+          <BrandLogo size="md" />
         </div>
         
-        <div className="p-6 flex-1">
-          <div className="space-y-2 mb-8">
+        <div className="p-5 flex-1">
+          <div className="space-y-1 mb-8">
             <button
               onClick={() => { setViewMode('restaurants'); setIsMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
                 viewMode === 'restaurants' 
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 translate-x-1' 
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  ? 'bg-slate-900 text-white shadow-xs' 
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
               }`}
             >
-              <Store className={`w-5 h-5 ${viewMode === 'restaurants' ? 'text-indigo-200' : 'text-slate-400'}`} />
+              <Store className="w-4 h-4 shrink-0" />
               <span>Restaurants</span>
             </button>
             <button
               onClick={() => { setViewMode('leads'); setIsMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
                 viewMode === 'leads' 
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 translate-x-1' 
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  ? 'bg-slate-900 text-white shadow-xs' 
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
               }`}
             >
-              <Users className={`w-5 h-5 ${viewMode === 'leads' ? 'text-indigo-200' : 'text-slate-400'}`} />
+              <Users className="w-4 h-4 shrink-0" />
               <span>Contact Leads</span>
               {leads.filter(l => l.status === 'new').length > 0 && (
-                <span className="ml-auto bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                <span className="ml-auto bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono text-[11px] font-bold px-2 py-0.5 rounded-md tabular-nums">
                   {leads.filter(l => l.status === 'new').length}
                 </span>
               )}
             </button>
             <button
               onClick={() => { setViewMode('library'); setIsMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
                 viewMode === 'library' 
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 translate-x-1' 
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  ? 'bg-slate-900 text-white shadow-xs' 
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
               }`}
             >
-              <ImageIcon className={`w-5 h-5 ${viewMode === 'library' ? 'text-indigo-200' : 'text-slate-400'}`} />
+              <ImageIcon className="w-4 h-4 shrink-0" />
               <span>Shared Image Library</span>
             </button>
           </div>
 
           {viewMode === 'restaurants' && (
             <>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Your Locations</h3>
-                <span className="bg-slate-100 text-slate-600 text-xs font-bold px-2 py-0.5 rounded-full">{restaurants.length}</span>
+              <div className="flex items-center justify-between mb-3 px-1">
+                <h3 className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Locations</h3>
+                <span className="font-mono text-[11px] font-medium text-slate-500 tabular-nums">{restaurants.length}</span>
               </div>
               
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {restaurants.map(rest => (
                   <button
                     key={rest.id}
                     onClick={() => { handleSelectRestaurant(rest); setIsMobileMenuOpen(false); }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                       selectedRestaurant?.id === rest.id 
-                        ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' 
-                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'
+                        ? 'bg-slate-100 text-slate-900 font-semibold' 
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                     }`}
                   >
                     <span className="truncate">{rest.name}</span>
-                    {selectedRestaurant?.id === rest.id && <ChevronRight className="w-4 h-4 ml-auto opacity-70" />}
+                    {selectedRestaurant?.id === rest.id && <ChevronRight className="w-3.5 h-3.5 ml-auto text-slate-400" />}
                   </button>
                 ))}
               </div>
 
-              <form onSubmit={(e) => { e.preventDefault(); handleCreateRestaurant(e); }} className="mt-8">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Add New Location</label>
-                <div className="flex items-center gap-2">
+              <form onSubmit={(e) => { e.preventDefault(); handleCreateRestaurant(e); }} className="mt-6 pt-5 border-t border-slate-100">
+                <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">New Location</label>
+                <div className="flex items-center gap-1.5">
                   <input
                     type="text"
                     placeholder="Restaurant Name"
                     value={newRestaurantName}
                     onChange={(e) => setNewRestaurantName(e.target.value)}
-                    className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all placeholder:text-slate-400"
+                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:bg-white focus:border-slate-900 transition-colors placeholder:text-slate-400"
                   />
                   <button 
                     type="submit"
                     disabled={loading || !newRestaurantName.trim()}
-                    className="p-2.5 bg-slate-900 text-white rounded-xl hover:bg-indigo-600 disabled:opacity-50 transition-colors shadow-sm"
+                    className="p-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-40 transition-colors shadow-xs"
+                    aria-label="Add location"
                   >
-                    <Plus className="w-5 h-5" />
+                    <Plus className="w-4 h-4" />
                   </button>
                 </div>
               </form>
@@ -1816,22 +1811,22 @@ export default function AdminDashboard() {
           )}
         </div>
 
-        <div className="p-6 border-t border-slate-100 bg-slate-50/50">
-          <div className="flex items-center gap-3 mb-6 px-2">
-            <div className="w-10 h-10 rounded-full bg-indigo-100 border-2 border-white shadow-sm flex items-center justify-center text-indigo-700 font-bold">
+        <div className="p-4 border-t border-slate-100 bg-slate-50/50">
+          <div className="flex items-center gap-2.5 mb-4 px-1">
+            <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center text-slate-700 font-bold text-xs shrink-0">
               {user?.email?.charAt(0).toUpperCase() || 'A'}
             </div>
-            <div className="overflow-hidden">
-              <p className="text-sm font-bold text-slate-900 truncate">{user?.email}</p>
-              <p className="text-xs text-slate-500 font-medium">Admin Account</p>
+            <div className="overflow-hidden min-w-0">
+              <p className="text-xs font-semibold text-slate-900 truncate">{user?.email}</p>
+              <p className="text-[11px] text-slate-400">Operator</p>
             </div>
           </div>
           <button 
             onClick={logout}
-            className="flex items-center justify-center gap-2 text-slate-600 hover:text-red-600 hover:bg-red-50 w-full px-4 py-2.5 rounded-xl text-sm font-bold transition-colors"
+            className="flex items-center justify-center gap-1.5 text-slate-600 hover:text-red-600 hover:bg-red-50/60 w-full px-3 py-2 rounded-lg text-xs font-medium transition-colors"
           >
-            <LogOut className="w-4 h-4" />
-            Sign Out
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Sign Out</span>
           </button>
         </div>
       </aside>

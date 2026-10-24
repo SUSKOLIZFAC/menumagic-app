@@ -110,24 +110,66 @@ export function ImageDisplay({ src, alt, className }: ImageDisplayProps) {
     };
   }, [src]);
 
-  if (!src) return null;
+  const [imgLoadError, setImgLoadError] = useState(false);
+
+  if (!src || imgLoadError) {
+    return (
+      <div 
+        className={`bg-gradient-to-br from-slate-100 to-slate-200 text-slate-400 flex flex-col items-center justify-center p-3 text-center ${className || ''}`}
+        aria-label={alt || 'Dish image placeholder'}
+      >
+        <svg className="w-6 h-6 opacity-40 mb-1 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+          <path d="M7 2v20" />
+          <path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
+        </svg>
+        <span className="text-[11px] font-medium tracking-tight text-slate-500/80 truncate max-w-full px-2">
+          {alt || 'Artisan Dish'}
+        </span>
+      </div>
+    );
+  }
 
   if (loading) {
-    return <div className={`bg-slate-200 animate-pulse ${className}`}></div>;
+    return <div className={`bg-slate-200/80 animate-pulse ${className || ''}`}></div>;
   }
 
   if (!dataUrl) {
     if (isQuotaExceededGlobal) {
       return (
-        <div className={`bg-amber-50 border border-amber-200 flex flex-col items-center justify-center text-amber-600 text-[10px] font-medium text-center p-2 ${className}`}>
-          <span className="font-bold text-xs mb-1">Limit Reached</span>
-          Image safely saved, but hidden until tomorrow
+        <div className={`bg-amber-50/90 border border-amber-200/60 flex flex-col items-center justify-center text-amber-700 text-[10px] font-medium text-center p-2 ${className || ''}`}>
+          <span className="font-semibold text-xs mb-0.5">Asset Saved</span>
+          <span>Temporarily cached</span>
         </div>
       );
     }
-    return <div className={`bg-slate-100 flex items-center justify-center text-slate-400 text-xs font-medium ${className}`}>No Image</div>;
+    return (
+      <div 
+        className={`bg-gradient-to-br from-slate-100 to-slate-200/80 text-slate-400 flex flex-col items-center justify-center p-3 text-center ${className || ''}`}
+        aria-label={alt || 'Dish image'}
+      >
+        <svg className="w-6 h-6 opacity-40 mb-1 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+          <path d="M7 2v20" />
+          <path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
+        </svg>
+        <span className="text-[11px] font-medium tracking-tight text-slate-500/80 truncate max-w-full px-2">
+          {alt || 'Artisan Dish'}
+        </span>
+      </div>
+    );
   }
 
-  return <img src={dataUrl} alt={alt || ''} className={className} />;
+  return (
+    <img 
+      src={dataUrl} 
+      alt={alt || 'Menu dish photo'} 
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+      onError={() => setImgLoadError(true)}
+      className={className} 
+    />
+  );
 }
 

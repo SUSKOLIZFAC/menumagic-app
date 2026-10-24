@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none">
+  <rect width="64" height="64" rx="16" fill="#0F172A"/>
+  <!-- Scanner Corner Accents -->
+  <path d="M14 24V16C14 14.8954 14.8954 14 16 14H24" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M40 14H48C49.1046 14 50 14.8954 50 16V24" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M50 40V48C50 49.1046 49.1046 50 48 50H40" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M24 50H16C14.8954 50 14 49.1046 14 48V40" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Cloche Dome & Plate -->
+  <circle cx="32" cy="22" r="2.5" fill="#F59E0B"/>
+  <path d="M21 38C21 28.5 25.5 25 32 25C38.5 25 43 28.5 43 38H21Z" fill="url(#cloche-grad)"/>
+  <path d="M19 41C19 40.4477 19.4477 40 20 40H44C44.5523 40 45 40.4477 45 41C45 41.5523 44.5523 42 44 42H20C19.4477 42 19 41.5523 19 41Z" fill="#F8FAFC"/>
+  <defs>
+    <linearGradient id="cloche-grad" x1="21" y1="25" x2="43" y2="38" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FBBF24"/>
+      <stop offset="1" stop-color="#D97706"/>
+    </linearGradient>
+  </defs>
+</svg>
